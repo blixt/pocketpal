@@ -3,6 +3,7 @@
 ## Environment
 
 Login to gcloud:
+
 ```bash
 ➜ 🏎️ gcloud auth login
 ➜ 🏎️ gcloud auth application-default login
@@ -10,6 +11,7 @@ Login to gcloud:
 ```
 
 Build and run locally:
+
 ```bash
 # build docker image locally
 ➜ 🏎️ docker build -f Dockerfile -t pocketpal_image .
@@ -21,7 +23,13 @@ Build and run locally:
 ```
 
 Build and push Docker image to Google Cloud's artifact registry:
+
 ```bash
 ➜ 🏎️ make push
 ```
 
+Run the React app locally:
+
+```bash
+➜ 🏎️ make dev-react
+```
