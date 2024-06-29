@@ -67,11 +67,10 @@ def stories():
             output = tuple(results[0])[0]
 
     # Convert to audio
-    audio = text_to_audio(output)
+    local_audio_path = text_to_audio(output)
     # Save in storage
     
-    
-    return jsonify({"audio": audio})
+    return "Hello"
 
 
 @app.route("/v1/story/<story_id>/branch/<branch_id>/", methods=("GET", "POST"))

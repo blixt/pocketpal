@@ -15,3 +15,6 @@ __pycache__/
 # These should be built by make.
 /static
 /templates
+
+# MP3
+*.mp3

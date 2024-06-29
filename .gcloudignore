@@ -12,3 +12,6 @@ venv/
 
 .git/
 __pycache__/
+
+# MP3
+*.mp3

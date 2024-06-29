@@ -7,3 +7,4 @@ gunicorn==22.0.0
 # gevent # does not work
 cloud-sql-python-connector[pg8000]==1.10.0
 SQLAlchemy==2.0.7
+elevenlabs==1.3.1
