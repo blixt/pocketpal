@@ -11,3 +11,7 @@ wandb
 
 # Python
 __pycache__/
+
+# These should be built by make.
+/static
+/templates
