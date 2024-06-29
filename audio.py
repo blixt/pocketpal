@@ -3,9 +3,7 @@ import os
 import requests
 from elevenlabs import VoiceSettings
 from elevenlabs.client import ElevenLabs
-
 from google.cloud import storage
-import requests
 
 ELEVENLABS_API_KEY = os.getenv("ELEVENLABS_API_KEY")
 bucket_name = 'pocketpal-bucket'
@@ -33,7 +31,7 @@ def text_to_audio(text: str, destination_blob_name: str):
 
     # Save in storage
     audio_data = b"".join(response)
-    client = storage.Client()
+    client = storage.Client(project="pocketpal-427909")
     bucket = client.get_bucket(bucket_name)
     blob = bucket.blob(destination_blob_name)
     blob.upload_from_string(audio_data)

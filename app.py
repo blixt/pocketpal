@@ -82,13 +82,13 @@ def generate_children_audio(story_id, branch_id):
         if not response: # children does not exist
             # Insert new
             # TODO: use uuid b62
-            new_branch_id = str(uuid.uuid4)
+            new_branch_id = str(uuid.uuid4())
             # Mark as in generation
             query = f"""
                 INSERT INTO branches 
                 (
                     branch_id, story_id, previous_branch_id, status, 
-                    sentiment, audio_url, paragraph, 
+                    sentiment, audio_url, paragraph
                 ) VALUES
                 (
                     '{new_branch_id}', '{story_id}', '{branch_id}', 'generating',
@@ -109,20 +109,22 @@ def generate_children_audio(story_id, branch_id):
             # Get sentiment prompt
             prompt = get_prompt(paragraph, sentiment)
             # Call LLM
-            output = openai_prompt(prompt)
+            output = openai_prompt(prompt).replace("'", "''")
             # To audio
-            audio_url = f"audios/{story_id}_{branch_id}.mp3"
+            audio_url = f"audios/{story_id}_{new_branch_id}.mp3"
             text_to_audio(output, audio_url)
             # Mark as done!
             query = f"""
-                    UPDATE branches 
-                    SET
-                        status = 'done', 
-                        audio_url = '{audio_url}',
-                        paragraph = '{output}'
-                    WHERE branch_id = '{new_branch_id}'
-                """
+                UPDATE branches 
+                SET
+                    status = 'done', 
+                    audio_url = '{audio_url}',
+                    paragraph = '{output}'
+                WHERE branch_id = '{new_branch_id}'
+            """
             run_query(query)
+
+    return {}
 
 
 # @app.route("/v1/story/<story_id>/branch/<branch_id>/", methods=("GET", "POST"))
