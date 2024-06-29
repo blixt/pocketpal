@@ -1,5 +1,6 @@
 import json
 import os
+import uuid
 
 import requests
 import sqlalchemy
@@ -11,7 +12,7 @@ from werkzeug.utils import secure_filename
 
 from audio import text_to_audio
 from db import run_query
-from prompts import get_initial_prompt
+from prompts import get_prompt
 
 # APP
 app = Flask(__name__)
@@ -28,46 +29,30 @@ def index():
     return render_template("index.html")
 
 
-@app.route("/v1/stories/", methods=("GET", "POST"))
-def stories():
+@app.route("/v1/story/<story_id>/branch/<branch_id>/", methods=("GET", "POST"))
+def stories(story_id, branch_id):
     """Get and post story"""
 
-    output = None
     if request.method == "POST":
-        # Get input from user
+        # Get input from user: text, + or -
         input = request.form["input"]
-        # Form prompt with input
-        prompt = get_initial_prompt(input)
-        # Call LLM and generate output
-        output = f"Output of LLM with..."
-        # Store in DB in an async manner
-        # query = "INSERT ..."
-        # run_query()
-    else:
-        # Get first story
-        query = "SELECT initial_prompt FROM story WHERE id = '1'"
+        # Already in DB?
+        query = """
+        SELECT description 
+        FROM branch 
+        WHERE story = '{story_id}' AND branch = '{branch_id}'
+        """
         results = run_query(query)
         if len(results) > 0:
-            output = tuple(results[0])[0]
-
-    # Convert to audio
-    local_audio_path = text_to_audio(output)
-    # Save in storage
-    
-    return "Hello"
-
-
-@app.route("/v1/story/<story_id>/branch/<branch_id>/", methods=("GET", "POST"))
-def branches(story_id, branch_id):
-
-    if request.method == "POST":
-        # Get input from user: either positive or negative
-        status = request.form["status"]
-        # Form prompt with input
-        prompt = f"Create a story with {input}"
-        # Call LLM and generate output
-        llm_output = f"Output of LLM with {prompt}"
-        # Store in DB
+            story = tuple(results[0])[0]
+        else:
+            prompt = get_prompt(input)
+            story = "new story" # call_llm(prompt)
+        # Store in DB in an async manner
         query = "INSERT ..."
-
-    return ""
+        run_query(query)
+        # Convert to audio and save in storage
+        destination_blob_name = f"story_{story_id}_branch_{branch_id}.mp3"
+        text_to_audio(story, destination_blob_name)
+        # Download audio for it to play
+        return destination_blob_name

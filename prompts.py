@@ -1,4 +1,4 @@
-def get_initial_prompt(input):
+def get_prompt(input):
     return f"""# Task
 You are a talented fantasy novels writer that is working on an audio-game. You write using the second person in the present tense to make the experience more immersive. The user will steer the story by providing "positive" input, or "negative" input. Write two paragraphs based on the input and the user signal.
 # Example

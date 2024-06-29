@@ -1,5 +1,4 @@
 import os
-import uuid
 
 import requests
 from elevenlabs import VoiceSettings
@@ -32,6 +31,7 @@ def text_to_audio(text: str, destination_blob_name: str):
         ),
     )
 
+    # Save in storage
     audio_data = b"".join(response)
     client = storage.Client()
     bucket = client.get_bucket(bucket_name)
