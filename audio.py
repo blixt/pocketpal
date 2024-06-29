@@ -33,7 +33,7 @@ def text_to_audio(text: str, destination_blob_name: str):
 
     # Save in storage
     audio_data = b"".join(response)
-    client = storage.Client("")
+    client = storage.Client()
     bucket = client.get_bucket(bucket_name)
     blob = bucket.blob(destination_blob_name)
     blob.upload_from_string(audio_data)

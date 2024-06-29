@@ -1,17 +1,5 @@
--- Insert test data for stories of a prince
-INSERT INTO stories (id, initial_branch_id, title, description, initial_prompt) VALUES
-('1', '1', 'The Prince', 'A stories about a brave prince', 'Once upon a time, there was a brave prince...');
+INSERT INTO stories (story_id, initial_branch_id, title, description) VALUES
+('1', '1', 'Tales of Caeloria', 'The adventures of Aldric in Caeloria');
 
-INSERT INTO branch (id, stories_id, previous_id, status, audio_url, stories, positive_branch_id, negative_branch_id) VALUES
-('1', '1', NULL, 'done', 'audio1.wav', 'The prince set out on a journey to find a dragon.', '2', '3'),
-('2', '1', '1', 'done', 'audio2.wav', 'The prince found the dragon and fought bravely.', NULL, NULL),
-('3', '1', '2', 'done', 'audio3.wav', 'The prince decided to return home and prepare better.', NULL, NULL);
-
--- Insert test data for stories of a duck
-INSERT INTO stories (id, initial_branch_id, title, description, initial_prompt) VALUES
-('2', '4', 'The Duck', 'A stories about a curious duck', 'Once upon a time, there was a curious duck...');
-
-INSERT INTO branch (id, stories_id, previous_id, status, audio_url, stories, positive_branch_id, negative_branch_id) VALUES
-('4', '2', NULL, 'done', 'audio4.wav', 'The duck decided to explore the nearby pond.', '5', '6'),
-('5', '2', '4', 'done', 'audio5.wav', 'The duck found a new friend in the pond.', NULL, NULL),
-('6', '2', '5', 'done', 'audio6.wav', 'The duck got lost and had to find its way back home.', NULL, NULL);
+INSERT INTO branches (branch_id, story_id, previous_branch_id, status, sentiment, audio_url, paragraph) VALUES
+('1', '1', NULL, NULL, 'initial_branch', NULL,'Your name is Aldric, and you live in the Kingdom of Caeloria. As a young apprentice mage, you''ve spent years studying the intricate art of runecrafting - the ability to imbue objects with magical properties through carefully etched symbols. The world around you teems with mystical energy, visible only to those trained to perceive it. Caeloria''s towering spires and floating islands are a testament to the power of runecraft, but lately, the kingdom has been plagued by inexplicable magical disturbances. Strange creatures emerge from rifts in reality, and once-stable runes flicker and fail. Your class on Advanced Glyph Theory starts in five minutes, but you falter mid-step. A faint thrum of magic, unlike anything you''ve felt before, pulls at your senses. Your eyes are drawn to an overgrown alcove, where a forgotten fountain stands hidden in shadow. Should you check it?');

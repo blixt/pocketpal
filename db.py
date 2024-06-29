@@ -33,7 +33,7 @@ def run_query(query: str):
 
     with pool.connect() as db_conn:
 
-        if query.strip().lower().split(' ')[0] == "insert":
+        if query.strip().lower().split(' ')[0] in ["insert", "update"]:
             db_conn.execute(
                 sqlalchemy.text(query)
             )
