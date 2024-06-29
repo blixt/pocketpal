@@ -9,7 +9,7 @@ interface StoryProps {
     currentBranch: string
 }
 
-export default function Story({ story, currentBranch }: StoryProps) {
+export default function Story({ story }: StoryProps) {
     const [sentiment, setSentiment] = useState<"positive" | "negative" | null>(null)
 
     const handleSentimentChange = (value: "positive" | "negative") => {

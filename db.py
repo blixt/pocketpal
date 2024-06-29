@@ -10,7 +10,7 @@ DB_NAME = os.environ.get("DB_NAME")
 INSTANCE_CONNECTION_NAME = os.environ.get("INSTANCE_CONNECTION_NAME")
 
 
-def get_query_results(query: str):
+def run_query(query: str):
     """Get query results"""
 
     connector = Connector()
