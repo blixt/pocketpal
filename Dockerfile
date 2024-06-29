@@ -9,14 +9,15 @@ WORKDIR /app
 COPY requirements.txt .
 
 # Install any needed packages specified in requirements.txt
+RUN python -m pip install pip --upgrade
 RUN pip install -r requirements.txt
 
 # Copy the rest of the working directory contents into the container at /app
-COPY . .
+COPY . /app
 
 # Run app.py when the container launches
-# ENTRYPOINT ["python","-u","app.py"]
-ENTRYPOINT ["flask", "run"]
+# ENTRYPOINT ["python", "-u", "local.py"]
+# ENTRYPOINT ["flask", "run"]
 
 # CMD exec gunicorn --bind :$PORT --workers 4 --threads 1 --timeout 0 app:app
 # CMD exec gunicorn app:app

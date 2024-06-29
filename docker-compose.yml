@@ -1,0 +1,25 @@
+version: '2.3'
+
+services:
+
+  pocketpal:
+    image: pocketpal_image
+    container_name: pocketpal
+    working_dir: /code
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      - PYTHONPATH=/code
+    ports:
+      # Flask
+      - "5000:5000"
+    volumes:
+      # Code
+      - ./:/code
+      # Data
+      - ./data:/data
+      # Temp artifacts
+      - /tmp:/tmp
+    shm_size: '32gb'
+    command: tail /dev/null -f
