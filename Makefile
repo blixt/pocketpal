@@ -12,3 +12,7 @@ logs:
 	@docker logs pocketpal -f
 redo:
 	make build; make run; make dev
+push:
+	@gcloud builds submit \
+	--config "cloud/cloudbuild.yaml" \
+	--substitutions=_DOCKERFILE="Dockerfile",_REPO_NAME="pocketpal"

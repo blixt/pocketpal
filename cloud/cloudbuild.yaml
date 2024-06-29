@@ -1,0 +1,28 @@
+steps:
+- id: pull-cached-docker-image
+  name: gcr.io/cloud-builders/docker
+  entrypoint: bash
+  args: ['-c', 'docker pull europe-southwest1-docker.pkg.dev/$PROJECT_ID/pocketpal-repo/$_REPO_NAME:$_TAG || exit 0']
+- id: build-docker-image
+  name: gcr.io/cloud-builders/docker
+  dir: $_DIR
+  entrypoint: bash
+  args:
+  - -uxc
+  - |
+      docker build --cache-from europe-southwest1-docker.pkg.dev/$PROJECT_ID/pocketpal-repo/$_REPO_NAME:$_TAG -t europe-southwest1-docker.pkg.dev/$PROJECT_ID/pocketpal-repo/$_REPO_NAME:$_TAG -f $_DOCKERFILE .
+- id: push-docker-image
+  name: gcr.io/cloud-builders/docker
+  dir: $_DIR
+  entrypoint: bash
+  args:
+  - -uxc
+  - |
+      docker push europe-southwest1-docker.pkg.dev/$PROJECT_ID/pocketpal-repo/$_REPO_NAME:$_TAG
+  waitFor: ['build-docker-image']
+
+substitutions:
+  _REPO_NAME: pocketpal
+  _DOCKERFILE: Dockerfile
+  _TAG: latest
+  _DIR: .

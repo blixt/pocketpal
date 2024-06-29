@@ -16,7 +16,7 @@ RUN pip install -r requirements.txt
 COPY . /app
 
 # Run app.py when the container launches
-# ENTRYPOINT ["python", "-u", "local.py"]
+ENTRYPOINT ["python", "-u", "local.py", "5000"]
 # ENTRYPOINT ["flask", "run"]
 
 # CMD exec gunicorn --bind :$PORT --workers 4 --threads 1 --timeout 0 app:app

@@ -1,0 +1,11 @@
+# Own artifacts
+data/
+
+# Environments
+.env/
+.venv/
+env/
+venv/
+
+.git/
+__pycache__/
