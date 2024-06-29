@@ -5,10 +5,13 @@ import requests
 from elevenlabs import VoiceSettings
 from elevenlabs.client import ElevenLabs
 
+from google.cloud import storage
+import requests
+
 ELEVENLABS_API_KEY = os.getenv("ELEVENLABS_API_KEY")
+bucket_name = 'pocketpal-bucket'
 
-
-def text_to_audio(text: str):
+def text_to_audio(text: str, destination_blob_name: str):
     """Convert text to audio"""
 
     client = ElevenLabs(
@@ -16,11 +19,11 @@ def text_to_audio(text: str):
     )
 
     response = client.text_to_speech.convert(
-        voice_id="iiidtqDt9FBdT1vfBluA",  # Adam pre-made voice
+        voice_id="iiidtqDt9FBdT1vfBluA",
         optimize_streaming_latency="0",
         output_format="mp3_22050_32",
         text=text,
-        model_id="eleven_turbo_v2",  # use the turbo model for low latency, for other languages use the `eleven_multilingual_v2`
+        model_id="eleven_turbo_v2",
         voice_settings=VoiceSettings(
             stability=0.0,
             similarity_boost=1.0,
@@ -29,15 +32,10 @@ def text_to_audio(text: str):
         ),
     )
 
-    # Generating a unique file name for the output MP3 file
-    save_file_path = f"{uuid.uuid4()}.mp3"
+    audio_data = b"".join(response)
+    client = storage.Client()
+    bucket = client.get_bucket(bucket_name)
+    blob = bucket.blob(destination_blob_name)
+    blob.upload_from_string(audio_data)
 
-    # Writing the audio stream to the file
-    with open(save_file_path, "wb") as f:
-        for chunk in response:
-            if chunk:
-                f.write(chunk)
-
-    print(f"A new audio file was saved successfully at {save_file_path}")
-
-    return save_file_path
+    print(f'File uploaded to {destination_blob_name} in bucket {bucket_name}.')
