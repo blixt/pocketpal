@@ -1,20 +1,29 @@
 import { ReaderIcon } from "@radix-ui/react-icons"
-import { Box, Card, Container, Flex, Text, Theme } from "@radix-ui/themes"
+import { AlertDialog, Box, Card, Container, Flex, Spinner, Text, Theme } from "@radix-ui/themes"
 import { useState } from "react"
 import CreateStory from "./CreateStory"
-import Story from "./Story"
+import StoryPlayer from "./StoryPlayer"
+import { createStory, type Story } from "./dummyAPI"
 import { useIsDarkMode } from "./useIsDarkMode"
 
 export default function App() {
     const isDarkMode = useIsDarkMode()
-    const [story, setStory] = useState<{ title: string; currentBranch: string } | null>(null)
+    const [story, setStory] = useState<Story | null>(null)
+    const [isLoading, setIsLoading] = useState(false)
+    const [error, setError] = useState<string | null>(null)
 
-    const handleCreateStory = (prompt: string) => {
-        // Create a temporary story with dummy data
-        setStory({
-            title: prompt.slice(0, 30), // Use first 30 characters of prompt as title
-            currentBranch: `temp-${Math.random().toString(36).substring(2, 9)}`, // Generate a random branch ID
-        })
+    const handleCreateStory = async (prompt: string) => {
+        setIsLoading(true)
+        setError(null)
+        try {
+            const newStory = await createStory(prompt)
+            setStory(newStory)
+        } catch (error) {
+            console.error("Error creating story:", error)
+            setError("Failed to create story. Please try again.")
+        } finally {
+            setIsLoading(false)
+        }
     }
 
     return (
@@ -30,8 +39,20 @@ export default function App() {
                         </Card>
                     </Box>
                     <Flex direction="column" align="center" justify="center" flexGrow="1">
-                        {story ? (
-                            <Story story={story} currentBranch={story.currentBranch} />
+                        {isLoading ? (
+                            <Spinner size="3" />
+                        ) : error ? (
+                            <AlertDialog.Root open={!!error}>
+                                <AlertDialog.Content>
+                                    <AlertDialog.Title>Error</AlertDialog.Title>
+                                    <AlertDialog.Description>{error}</AlertDialog.Description>
+                                    <Flex justify="end">
+                                        <AlertDialog.Action onClick={() => setError(null)}>Close</AlertDialog.Action>
+                                    </Flex>
+                                </AlertDialog.Content>
+                            </AlertDialog.Root>
+                        ) : story ? (
+                            <StoryPlayer story={story} />
                         ) : (
                             <CreateStory onCreateStory={handleCreateStory} />
                         )}

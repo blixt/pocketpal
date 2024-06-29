@@ -42,3 +42,4 @@ export default function Story({ story }: StoryProps) {
         </Flex>
     )
 }
+
