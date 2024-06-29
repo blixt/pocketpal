@@ -1,6 +1,9 @@
 # Own artifacts
 data/
 
+# React
+react/
+
 # Environments
 .env/
 .venv/

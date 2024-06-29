@@ -1,21 +1,12 @@
+import json
 import os
 
+import requests
 # Flask
-from flask import (
-    Flask,
-    render_template,
-    jsonify,
-    request,
-    Response,
-    flash,
-    redirect,
-    url_for,
-)
+from flask import (Flask, Response, flash, jsonify, redirect, render_template,
+                   request, url_for)
 from flask_bootstrap import Bootstrap
 from werkzeug.utils import secure_filename
-import requests
-import json
-
 
 # APP
 app = Flask(__name__)
@@ -29,4 +20,10 @@ uploads_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), "static
 # LANDING
 @app.route("/", methods=("GET", "POST"))
 def index():
-    return "Hello!"
+    return render_template("index.html")
+
+
+# Name
+@app.route("/<name>")
+def name(name):
+    return f"Hello {name}!"
