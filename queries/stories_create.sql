@@ -1,5 +1,5 @@
-CREATE TABLE IF NOT EXISTS story (
-    id TEXT PRIMARY KEY,
+CREATE TABLE IF NOT EXISTS stories (
+    story_id TEXT PRIMARY KEY,
     initial_branch_id TEXT,
     title TEXT,
     description TEXT,

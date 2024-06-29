@@ -14,6 +14,7 @@ def run_query(query: str):
     """Get query results"""
 
     connector = Connector()
+    results = None
 
     def getconn():
         connection = connector.connect(
@@ -31,9 +32,16 @@ def run_query(query: str):
     )
 
     with pool.connect() as db_conn:
-        results = db_conn.execute(
-            sqlalchemy.text(query)
-        ).fetchall()
+
+        if query.strip().lower().split(' ')[0] == "insert":
+            db_conn.execute(
+                sqlalchemy.text(query)
+            )
+            db_conn.commit()
+        else:
+            results = db_conn.execute(
+                sqlalchemy.text(query)
+            ).fetchall()
 
     connector.close()
 

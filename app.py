@@ -30,10 +30,91 @@ def index():
 
 
 @app.route("/v1/story/<story_id>/branch/<branch_id>/")
-def get_audio(story_id, branch_id):
-    """Get audio for any node"""
+def generate_children_audio(story_id, branch_id):
+    """
+    - Check if story exists
+    - Check if branch exists
+    - If story or branch does not exist fail
+    - Check if children exist
+    - If they don't exist, we create them: concatenate stories from ancestors
+    - status pending
+    - generate positive and negative audios
+    - status ok
+    """
 
-    # Already in DB?
+    # Check if story exists
+    query = f"""SELECT EXISTS (
+            SELECT 1 
+            FROM stories 
+            WHERE story_id = '{story_id}'
+        )
+    """
+    results = run_query(query)
+    response = tuple(results[0])[0]
+    if not response: # story does not exist
+        raise Exception(f"Story {story_id} does not exist!")
+    # Check if branch exists
+    query = f"""SELECT EXISTS (
+            SELECT 1 
+            FROM branches 
+            WHERE branch_id = '{branch_id}'
+        )
+    """
+    results = run_query(query)
+    response = tuple(results[0])[0]
+    if not response: # branch does not exist
+        raise Exception(f"Branch {branch_id} does not exist!")
+    # Check if positive child exists
+    query = f"""
+        SELECT EXISTS (
+            SELECT 1 
+            FROM branches 
+            WHERE previous_branch_id = '{branch_id}' 
+            AND sentiment = 'positive'
+            AND (status <> 'done' OR status <> 'generating')
+        )
+    """
+    results = run_query(query)
+    response = tuple(results[0])[0]
+    print(response)
+    if not response: # children does not exist
+        # Mark as in generation
+        new_branch_id = 2
+        query = f"""
+            INSERT INTO branches 
+            (
+                branch_id, story_id, previous_branch_id, status, sentiment, 
+                audio_url, paragraph, positive_branch_id, negative_branch_id
+            ) VALUES
+            (
+                '{new_branch_id}', '{story_id}', '{branch_id}', 
+                'generating', 'positive', NULL, NULL, NULL, NULL
+            )
+        """
+        run_query(query)
+        # Generate it!
+        
+
+
+        import pdb; pdb.set_trace()
+        # generate_child(status=positive)
+
+
+    import pdb; pdb.set_trace()
+    # Check if negative child exists
+    query = f"""
+        SELECT status 
+        FROM branches 
+        WHERE previous_branch_id = '{branch_id}' 
+            AND sentiment = 'negative'
+            AND status = 'done'
+    """
+    results = run_query(query)
+    response = False if len(results) == 0 or tuple(results[0])[0] != "done" else True
+
+
+
+    # Check if story exists?
     query = f"""
     SELECT audio_url 
     FROM branch 
@@ -82,7 +163,7 @@ def post_and_get_audio(story_id, branch_id):
         # Store in DB in an async manner
         query = "INSERT ..."
         run_query(query)
-        
+
         return {
             "audio_url": audio_url
         }
