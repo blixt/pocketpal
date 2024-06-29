@@ -5,3 +5,5 @@ flask-bootstrap==3.3.7.1
 pytz==2024.1
 gunicorn==22.0.0
 # gevent # does not work
+cloud-sql-python-connector[pg8000]
+SQLAlchemy==2.0.7
