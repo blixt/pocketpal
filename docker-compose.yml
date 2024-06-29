@@ -22,5 +22,13 @@ services:
       - ./data:/data
       # Temp artifacts
       - /tmp:/tmp
+      # Gcloud Auth
+      - ~/.config/:/root/.config
+      # Gcloud Docker Auth
+      - ~/.docker/config.json:/root/.docker/config.json
+      # SSH Config for Git
+      - ~/.ssh/:/root/.ssh
+      # Git config for Git
+      - ~/.gitconfig:/root/.gitconfig
     shm_size: '32gb'
     # command: tail /dev/null -f
