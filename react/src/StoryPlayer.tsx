@@ -1,6 +1,6 @@
 import { Button, Flex, Heading } from "@radix-ui/themes"
 import { useEffect, useReducer, useRef } from "react"
-import { generateBranch, getBranch, type Branch, type Story } from "./dummyAPI"
+import { generateBranch, getBranch, type Branch, type Story } from "./api"
 
 interface StoryProps {
     story: Story

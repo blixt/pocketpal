@@ -3,7 +3,7 @@ import { AlertDialog, Box, Card, Container, Flex, Spinner, Text, Theme } from "@
 import { useState } from "react"
 import CreateStory from "./CreateStory"
 import StoryPlayer from "./StoryPlayer"
-import { createStory, type Story } from "./dummyAPI"
+import { createStory, type Story } from "./api"
 import { useIsDarkMode } from "./useIsDarkMode"
 
 export default function App() {

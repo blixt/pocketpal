@@ -1,4 +1,4 @@
-const API_BASE_URL = "http://localhost:5000/v1" // Adjust this URL as needed
+const API_BASE_URL = "/v1"
 
 export interface Story {
     id: string
