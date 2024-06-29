@@ -38,3 +38,8 @@ push:
 	@gcloud builds submit \
 	--config "cloud/cloudbuild.yaml" \
 	--substitutions=_DOCKERFILE="Dockerfile",_REPO_NAME="pocketpal"
+
+deploy:
+	@gcloud run deploy "pocketpalrun" \
+	--image europe-southwest1-docker.pkg.dev/pocketpal-427909/pocketpal-repo/pocketpal:latest \
+	--region europe-southwest1
