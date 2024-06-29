@@ -1,0 +1,6 @@
+flask==3.0.3
+requests==2.32.3
+Werkzeug==3.0.3
+flask-bootstrap==3.3.7.1
+pytz==2024.1
+gunicorn==22.0.0
