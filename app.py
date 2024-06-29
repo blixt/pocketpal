@@ -12,6 +12,7 @@ from werkzeug.utils import secure_filename
 
 from audio import text_to_audio
 from db import run_query
+from llm import openai_prompt
 from prompts import get_prompt
 
 # APP
@@ -77,30 +78,42 @@ def generate_children_audio(story_id, branch_id):
     results = run_query(query)
     response = tuple(results[0])[0]
     print(response)
-    if not response: # children does not exist
+    # if not response: # children does not exist
         # Mark as in generation
-        new_branch_id = 2
-        query = f"""
-            INSERT INTO branches 
-            (
-                branch_id, story_id, previous_branch_id, status, sentiment, 
-                audio_url, paragraph, positive_branch_id, negative_branch_id
-            ) VALUES
-            (
-                '{new_branch_id}', '{story_id}', '{branch_id}', 
-                'generating', 'positive', NULL, NULL, NULL, NULL
-            )
-        """
-        run_query(query)
+        # new_branch_id = 2
+        # query = f"""
+        #     INSERT INTO branches 
+        #     (
+        #         branch_id, story_id, previous_branch_id, status, sentiment, 
+        #         audio_url, paragraph, positive_branch_id, negative_branch_id
+        #     ) VALUES
+        #     (
+        #         '{new_branch_id}', '{story_id}', '{branch_id}', 
+        #         'generating', 'positive', NULL, NULL, NULL, NULL
+        #     )
+        # """
+        # run_query(query)
         # Generate it!
-        
-
-
-        import pdb; pdb.set_trace()
-        # generate_child(status=positive)
-
+    query = f"""
+    SELECT paragraph 
+    FROM branches 
+    WHERE story_id = '{story_id}' AND branch_id = '{branch_id}'
+    """
+    results = run_query(query)
+    # Get paragraph
+    paragraph = tuple(results[0])[0]
+    # Get sentiment prompt
+    prompt = get_prompt(paragraph, "positive")
+    # Call LLM
+    output = openai_prompt(prompt)
+    # To audio
+    audio_url = f"audios/{story_id}_{branch_id}.mp3"
+    text_to_audio(output, audio_url)
 
     import pdb; pdb.set_trace()
+    # generate_child(status=positive)
+
+
     # Check if negative child exists
     query = f"""
         SELECT status 
