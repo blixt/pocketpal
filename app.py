@@ -9,7 +9,9 @@ from flask import (Flask, Response, flash, jsonify, redirect, render_template,
 from flask_bootstrap import Bootstrap
 from werkzeug.utils import secure_filename
 
-from db import get_query_results
+from audio import text_to_audio
+from db import run_query
+from prompts import get_initial_prompt
 
 # APP
 app = Flask(__name__)
@@ -32,10 +34,57 @@ def hello(name):
     return f"Hello {name}!"
 
 
-# Name
-@app.route("/ratings")
-def ratings():
+@app.route("/example")
+def example():
+    """Get example"""
     query = "SELECT name FROM ratings"
-    results = get_query_results(query)
+    results = run_query(query)
     results = [tuple(row) for row in results]
     return jsonify(results)
+
+
+@app.route("/v1/stories/", methods=("GET", "POST"))
+def stories():
+    """Get and post story"""
+
+    output = None
+    if request.method == "POST":
+        # Get input from user
+        input = request.form["input"]
+        # Form prompt with input
+        prompt = get_initial_prompt(input)
+        # Call LLM and generate output
+        output = f"Output of LLM with..."
+
+        # Store in DB in an async manner
+        # query = "INSERT ..."
+        # run_query()
+    else:
+        # Get first story
+        query = "SELECT initial_prompt FROM story WHERE id = '1'"
+        results = run_query(query)
+        if len(results) > 0:
+            output = tuple(results[0])[0]
+
+    # Convert to audio
+    audio = text_to_audio(output)
+    # Save in storage
+    
+    
+    return jsonify({"audio": audio})
+
+
+@app.route("/v1/story/<story_id>/branch/<branch_id>/", methods=("GET", "POST"))
+def branches(story_id, branch_id):
+
+    if request.method == "POST":
+        # Get input from user: either positive or negative
+        status = request.form["status"]
+        # Form prompt with input
+        prompt = f"Create a story with {input}"
+        # Call LLM and generate output
+        llm_output = f"Output of LLM with {prompt}"
+        # Store in DB
+        query = "INSERT ..."
+
+    return ""
