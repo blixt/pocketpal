@@ -28,21 +28,6 @@ def index():
     return render_template("index.html")
 
 
-# Name
-@app.route("/hello/<name>")
-def hello(name):
-    return f"Hello {name}!"
-
-
-@app.route("/example")
-def example():
-    """Get example"""
-    query = "SELECT name FROM ratings"
-    results = run_query(query)
-    results = [tuple(row) for row in results]
-    return jsonify(results)
-
-
 @app.route("/v1/stories/", methods=("GET", "POST"))
 def stories():
     """Get and post story"""
@@ -55,7 +40,6 @@ def stories():
         prompt = get_initial_prompt(input)
         # Call LLM and generate output
         output = f"Output of LLM with..."
-
         # Store in DB in an async manner
         # query = "INSERT ..."
         # run_query()
