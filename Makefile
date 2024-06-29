@@ -1,13 +1,26 @@
-.PHONY: build run dev down status logs redo push build-react
+.PHONY: build run dev down status logs redo push build-react dev-react
 
 build: build-react
 	@docker-compose build
+
+build-react:
+	@cd react && yarn && yarn build
+	@# TODO: This is a bit inelegant, let's clean up later.
+	rm -rf static templates
+	cp -r react/dist/* .
 
 run:
 	@docker-compose up -d --build
 
 dev:
 	@docker exec -it pocketpal bash
+
+dev-react:
+	@mkdir -p react/dist/{static,templates}
+	rm -rf static templates
+	ln -s react/dist/static static
+	ln -s react/dist/templates templates
+	@cd react && yarn && yarn dev
 
 down:
 	@docker-compose down -v
@@ -25,16 +38,3 @@ push:
 	@gcloud builds submit \
 	--config "cloud/cloudbuild.yaml" \
 	--substitutions=_DOCKERFILE="Dockerfile",_REPO_NAME="pocketpal"
-
-build-react:
-	@cd react && yarn && yarn build
-	@# TODO: This is a bit inelegant, let's clean up later.
-	rm -rf static templates
-	cp -r react/dist/* .
-
-dev-react:
-	@mkdir -p react/dist/{static,templates}
-	rm -rf static templates
-	ln -s react/dist/static static
-	ln -s react/dist/templates templates
-	@cd react && yarn && yarn dev
