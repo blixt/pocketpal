@@ -29,6 +29,26 @@ def index():
     return render_template("index.html")
 
 
+@app.route("/v1/story/<story_id>/branch/<branch_id>/")
+def get_audio(story_id, branch_id):
+    """Get audio for any node"""
+
+    # Already in DB?
+    query = f"""
+    SELECT audio_url 
+    FROM branch 
+    WHERE story_id = '{story_id}' AND id = '{branch_id}'
+    """
+    results = run_query(query)
+    # if it exists, return it
+    if len(results) > 0:
+        audio_url = tuple(results[0])[0]
+        return {
+            "audio_url": audio_url
+        }
+    return {}
+
+
 @app.route("/v1/story/<story_id>/branch/<branch_id>/", methods=("GET", "POST"))
 def stories(story_id, branch_id):
     """Get and post story"""
@@ -38,9 +58,9 @@ def stories(story_id, branch_id):
         input = request.form["input"]
         # Already in DB?
         query = """
-        SELECT description 
-        FROM branch 
-        WHERE story = '{story_id}' AND branch = '{branch_id}'
+        SELECT story 
+        FROM story 
+        WHERE id = '{story_id}'
         """
         results = run_query(query)
         if len(results) > 0:
