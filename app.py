@@ -172,56 +172,30 @@ def get_branch(story_id, branch_id):
     if not story_and_branch_exist.branch_exists:
         abort(404, f"Branch {branch_id} does not exist!")
 
-    # Get story language
-    lang = run_query(
+    # Get leaf
+    curr_leaf = run_query(
         """
-        SELECT lang
-        FROM stories
-        WHERE story_id = :story_id
+        SELECT leaf
+        FROM branches
+        WHERE branch_id = :branch_id
         """,
-        story_id=story_id,
+        branch_id=branch_id,
     ).scalar()
 
-    # Has the story finished
-    story_finish = False
-
-    # Check and create children branches
-    for sentiment in ["positive", "negative"]:
-        logging.info(f"Fetching retrieving {sentiment} node for branch {branch_id} and story {story_id}")
-        child_branch = run_query(
+    if not curr_leaf:
+        logging.info(f"Compute children for branch {branch_id}")
+        # Get story language
+        lang = run_query(
             """
-            SELECT branch_id, status
-            FROM branches 
-            WHERE previous_branch_id = :branch_id 
-            AND sentiment = :sentiment
+            SELECT lang
+            FROM stories
+            WHERE story_id = :story_id
             """,
-            branch_id=branch_id,
-            sentiment=sentiment,
-        ).fetchone()
+            story_id=story_id,
+        ).scalar()
 
-        if child_branch and child_branch.status != "failed":
-            continue
-
-        # Create new branch or update failed branch.
-        # To reach a 0.01% chance of collision, you need approximately 13M items.
-        new_branch_id = child_branch.branch_id if child_branch else base62(10)
-        logging.info(f"Generating or retrieving node branch {new_branch_id} for story {story_id}")
-
-        if not child_branch:
-            run_query(
-                """
-                INSERT INTO branches 
-                (branch_id, story_id, previous_branch_id, status, sentiment, audio_url, paragraph)
-                VALUES (:new_branch_id, :story_id, :branch_id, 'generating', :sentiment, NULL, NULL)
-                """,
-                new_branch_id=new_branch_id,
-                story_id=story_id,
-                branch_id=branch_id,
-                sentiment=sentiment,
-            )
-
-        # Generate content
-        logging.info(f"Generating story content for branch {new_branch_id} for story {story_id}")
+        # Get story content
+        logging.info(f"Getting story content for branch {branch_id}")
         story_content = run_query(
             """
             WITH RECURSIVE branch_history AS (
@@ -242,52 +216,93 @@ def get_branch(story_id, branch_id):
             branch_id=branch_id,
         ).scalar()
 
-        # Generate new content and audio
-        logging.info(f"Generating prompt and audio for branch {new_branch_id} and story {story_id}")
+        # Story is long enough to become leaf
+        logging.info(f"Length of story content for branch {branch_id} is {len(story_content):,}")
+        leaf = False
         if len(story_content) > MAX_STORY_LENGTH:
-            prompt = get_final_prompt(story_content, sentiment, lang)
-            story_finish = True
-            logging.info(f"Final prompt generated for branch {new_branch_id} and story {story_id}")
-        else:
-            prompt = get_continue_prompt(story_content, sentiment, lang)
-        logging.info(f"Prompt generated for branch {new_branch_id} and story {story_id}")
+            leaf = True
 
-        new_paragraph = openai_prompt(prompt)
-        logging.info(f"Paragraph generated for branch {new_branch_id} and story {story_id}")
-        audio_url = f"audios/{story_id}_{new_branch_id}.mp3"
-        text_to_audio(lang, new_paragraph, audio_url)
-        logging.info(f"Audio generated for branch {new_branch_id} and story {story_id}")
+        # Check and create children branches
+        for sentiment in ["positive", "negative"]:
+            logging.info(f"Fetching retrieving {sentiment} node for branch {branch_id} and story {story_id}")
+            child_branch = run_query(
+                """
+                SELECT branch_id, status
+                FROM branches 
+                WHERE previous_branch_id = :branch_id 
+                AND sentiment = :sentiment
+                """,
+                branch_id=branch_id,
+                sentiment=sentiment,
+            ).fetchone()
 
-        # Update child branch with new content and audio
-        run_query(
+            if child_branch and child_branch.status != "failed":
+                continue
+
+            # Create new branch or update failed branch.
+            # To reach a 0.01% chance of collision, you need approximately 13M items.
+            new_branch_id = child_branch.branch_id if child_branch else base62(10)
+            logging.info(f"Generating or retrieving node branch {new_branch_id} for story {story_id}")
+
+            if not child_branch:
+                run_query(
+                    """
+                    INSERT INTO branches 
+                    (branch_id, story_id, previous_branch_id, status, sentiment, audio_url, paragraph, leaf)
+                    VALUES (:new_branch_id, :story_id, :branch_id, 'generating', :sentiment, NULL, NULL, :leaf)
+                    """,
+                    new_branch_id=new_branch_id,
+                    story_id=story_id,
+                    branch_id=branch_id,
+                    sentiment=sentiment,
+                    leaf=leaf
+                )
+
+            # Generate new content and audio
+            logging.info(f"Generating prompt and audio for branch {new_branch_id} and story {story_id}")
+            if leaf:
+                prompt = get_final_prompt(story_content, sentiment, lang)
+                logging.info(f"Final prompt generated for branch {new_branch_id} and story {story_id}")
+            else:
+                prompt = get_continue_prompt(story_content, sentiment, lang)
+                logging.info(f"Prompt generated for branch {new_branch_id} and story {story_id}")
+
+            new_paragraph = openai_prompt(prompt)
+            logging.info(f"Paragraph generated for branch {new_branch_id} and story {story_id}")
+            audio_url = f"audios/{story_id}_{new_branch_id}.mp3"
+            text_to_audio(lang, new_paragraph, audio_url)
+            logging.info(f"Audio generated for branch {new_branch_id} and story {story_id}")
+
+            # Update child branch with new content and audio
+            run_query(
+                """
+                UPDATE branches SET
+                    status = 'done', 
+                    audio_url = :audio_url,
+                    paragraph = :new_paragraph
+                WHERE branch_id = :new_branch_id
+                """,
+                audio_url=audio_url,
+                new_paragraph=new_paragraph,
+                new_branch_id=new_branch_id,
+            )
+
+            # Update the requested branch with reference to the child branch
+            update_query = """
+                UPDATE branches SET
             """
-            UPDATE branches SET
-                status = 'done', 
-                audio_url = :audio_url,
-                paragraph = :new_paragraph
-            WHERE branch_id = :new_branch_id
-            """,
-            audio_url=audio_url,
-            new_paragraph=new_paragraph,
-            new_branch_id=new_branch_id,
-        )
+            if sentiment == "positive":
+                update_query += "positive_branch_id = :new_branch_id"
+            else:
+                update_query += "negative_branch_id = :new_branch_id"
+            update_query += " WHERE branch_id = :branch_id"
 
-        # Update the requested branch with reference to the child branch
-        update_query = """
-            UPDATE branches SET
-        """
-        if sentiment == "positive":
-            update_query += "positive_branch_id = :new_branch_id"
-        else:
-            update_query += "negative_branch_id = :new_branch_id"
-        update_query += " WHERE branch_id = :branch_id"
-
-        run_query(
-            update_query,
-            new_branch_id=new_branch_id,
-            branch_id=branch_id,
-        )
-        logging.info(f"DB update for branch {new_branch_id} and story {story_id} done")
+            run_query(
+                update_query,
+                new_branch_id=new_branch_id,
+                branch_id=branch_id,
+            )
+            logging.info(f"DB update for branch {new_branch_id} and story {story_id} done")
 
     # Fetch the updated branch details
     logging.info(f"Fetching branch {branch_id} for story {story_id}")
@@ -310,6 +325,6 @@ def get_branch(story_id, branch_id):
             "story": branch.paragraph,
             "positive_branch_id": branch.positive_branch_id,
             "negative_branch_id": branch.negative_branch_id,
-            "story_finish": story_finish,
+            "leaf": branch.leaf,
         }
     )

@@ -9,7 +9,8 @@ CREATE TABLE IF NOT EXISTS branches (
     audio_url TEXT,
     paragraph TEXT,
     positive_branch_id TEXT REFERENCES branches(branch_id) ON DELETE SET NULL,
-    negative_branch_id TEXT REFERENCES branches(branch_id) ON DELETE SET NULL
+    negative_branch_id TEXT REFERENCES branches(branch_id) ON DELETE SET NULL,
+    leaf BOOLEAN
 );
 
 CREATE INDEX idx_branches_story_id ON branches(story_id);
