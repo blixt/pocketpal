@@ -6,7 +6,11 @@ def get_initial_prompt(story_description):
 
 {json.dumps({"story_premise": story_description}, indent=4)}
 
-And turn it into a new story with only its first paragraph written. Return it as a JSON object matching this TypeScript interface:
+And turn it into a new story with only its first paragraph written.
+
+You write using the language that was used for the premise and in the second person in the present tense to make the experience more immersive.
+
+Return it as a JSON object matching this TypeScript interface:
 
 interface Story {{
     lang: "es" | "en";
@@ -44,6 +48,7 @@ The paragraph should finish with a situation where there is an alternative choic
 
 # Output
 """
+
 
 def get_final_prompt(input, sentiment, lang):
     return f"""# Task
