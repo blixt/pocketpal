@@ -6,6 +6,7 @@ import {
     PlusIcon,
     ReloadIcon,
     TimerIcon,
+    TrackPreviousIcon,
 } from "@radix-ui/react-icons"
 import { Button, Flex, Heading, IconButton, Text } from "@radix-ui/themes"
 import { useEffect, useReducer, useRef } from "react"
@@ -25,6 +26,7 @@ type State = {
     hasAudioEnded: boolean
     isPlaying: boolean
     playbackRate: number
+    previousBranches: Branch[]
 }
 
 type Action =
@@ -37,6 +39,7 @@ type Action =
     | { type: "TRANSITION_TO_NEXT_BRANCH"; fromBranchId: string }
     | { type: "TOGGLE_PLAYING" }
     | { type: "TOGGLE_PLAYBACK_SPEED" }
+    | { type: "GO_BACK" }
 
 function reducer(state: State, action: Action): State {
     switch (action.type) {
@@ -85,6 +88,7 @@ function reducer(state: State, action: Action): State {
                 sentiment: null,
                 hasAudioEnded: false,
                 isPlaying: true,
+                previousBranches: [...state.previousBranches, state.currentBranch],
             }
         case "TOGGLE_PLAYING":
             return { ...state, isPlaying: !state.isPlaying }
@@ -94,6 +98,21 @@ function reducer(state: State, action: Action): State {
             return { ...state, isPlaying: true }
         case "TOGGLE_PLAYBACK_SPEED":
             return { ...state, playbackRate: state.playbackRate === 1 ? 2 : 1 }
+        case "GO_BACK": {
+            if (state.previousBranches.length === 0) {
+                return state
+            }
+            const previousBranch = state.previousBranches[state.previousBranches.length - 1]
+            return {
+                ...state,
+                currentBranch: previousBranch,
+                upcomingBranch: null,
+                sentiment: null,
+                hasAudioEnded: false,
+                isPlaying: true,
+                previousBranches: state.previousBranches.slice(0, -1),
+            }
+        }
         default:
             throw new Error("Unexpected action type")
     }
@@ -115,6 +134,7 @@ export default function StoryPlayer({ story, autoplay = false, autoContinue = tr
         hasAudioEnded: false,
         isPlaying: autoplay,
         playbackRate: 1,
+        previousBranches: [],
     })
 
     const audioRef = useRef<HTMLAudioElement | null>(null)
@@ -273,9 +293,22 @@ export default function StoryPlayer({ story, autoplay = false, autoContinue = tr
         window.location.reload()
     }
 
+    const handleGoBack = () => {
+        dispatch({ type: "GO_BACK" })
+    }
+
     return (
         <Flex direction="column" gap="4" align="center">
             <Flex direction="row" gap="2">
+                <IconButton
+                    size="4"
+                    variant="classic"
+                    radius="full"
+                    onClick={handleGoBack}
+                    disabled={state.previousBranches.length === 0}
+                >
+                    <TrackPreviousIcon width="24" height="24" />
+                </IconButton>
                 <IconButton size="4" variant="classic" radius="full" onClick={handlePlayPauseClick}>
                     {state.isPlaying ? <PauseIcon width="24" height="24" /> : <PlayIcon width="24" height="24" />}
                 </IconButton>
