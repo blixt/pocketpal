@@ -31,5 +31,5 @@ export default defineConfig({
         assetsDir: "static",
     },
     publicDir: false,
-    base: "./",
+    base: "/",
 })

@@ -21,8 +21,9 @@ def base62(length):
 
 
 # Entrypoint for visitors to the app
-@app.route("/", methods=("GET", "POST"))
-def index():
+@app.route("/")
+@app.route("/story/<story_id>")
+def index(story_id=None):
     return render_template("index.html")
 
 

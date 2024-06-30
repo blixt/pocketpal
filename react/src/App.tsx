@@ -1,9 +1,9 @@
 import { ReaderIcon } from "@radix-ui/react-icons"
 import { AlertDialog, Box, Card, Container, Flex, Spinner, Text, Theme } from "@radix-ui/themes"
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import CreateStory from "./CreateStory"
 import StoryPlayer from "./StoryPlayer"
-import { createStory, type Story } from "./api"
+import { createStory, getStory, type Story } from "./api"
 import { useIsDarkMode } from "./useIsDarkMode"
 
 export default function App() {
@@ -12,12 +12,37 @@ export default function App() {
     const [isLoading, setIsLoading] = useState(false)
     const [error, setError] = useState<string | null>(null)
 
+    useEffect(() => {
+        const path = window.location.pathname
+        const storyIdMatch = path.match(/^\/story\/(.+)$/)
+
+        if (storyIdMatch) {
+            const storyId = storyIdMatch[1]
+            loadStory(storyId)
+        }
+    }, [])
+
+    const loadStory = async (storyId: string) => {
+        setIsLoading(true)
+        setError(null)
+        try {
+            const loadedStory = await getStory(storyId)
+            setStory(loadedStory)
+        } catch (error) {
+            console.error("Error loading story:", error)
+            setError("Failed to load story. Please try again.")
+        } finally {
+            setIsLoading(false)
+        }
+    }
+
     const handleCreateStory = async (prompt: string) => {
         setIsLoading(true)
         setError(null)
         try {
             const newStory = await createStory(prompt)
             setStory(newStory)
+            window.history.pushState(null, "", `/story/${newStory.id}`)
         } catch (error) {
             console.error("Error creating story:", error)
             setError("Failed to create story. Please try again.")

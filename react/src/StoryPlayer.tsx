@@ -1,8 +1,10 @@
+import { PlayIcon } from "@radix-ui/react-icons"
 import { Button, Flex, Heading } from "@radix-ui/themes"
 import { useEffect, useReducer, useRef } from "react"
 import { generateBranch, getBranch, type Branch, type Story } from "./api"
 
 interface StoryProps {
+    autoplay?: boolean
     story: Story
 }
 
@@ -12,6 +14,7 @@ type State = {
     sentiment: "positive" | "negative" | null
     isButtonsDisabled: boolean
     hasAudioEnded: boolean
+    isPlaying: boolean
 }
 
 type Action =
@@ -21,6 +24,7 @@ type Action =
     | { type: "DISABLE_BUTTONS" }
     | { type: "AUDIO_ENDED" }
     | { type: "TRANSITION_TO_NEXT_BRANCH" }
+    | { type: "START_PLAYING" }
 
 function reducer(state: State, action: Action): State {
     switch (action.type) {
@@ -49,6 +53,8 @@ function reducer(state: State, action: Action): State {
                 isButtonsDisabled: false,
                 hasAudioEnded: false,
             }
+        case "START_PLAYING":
+            return { ...state, isPlaying: true }
         default:
             throw new Error("Unexpected action type")
     }
@@ -64,13 +70,14 @@ function withLogging(reducer: (state: State, action: Action) => State) {
     }
 }
 
-export default function StoryPlayer({ story }: StoryProps) {
+export default function StoryPlayer({ story, autoplay = false }: StoryProps) {
     const [state, dispatch] = useReducer(withLogging(reducer), {
         currentBranch: null,
         upcomingBranch: null,
         sentiment: null,
         isButtonsDisabled: false,
         hasAudioEnded: false,
+        isPlaying: autoplay,
     })
 
     const audioRef = useRef<HTMLAudioElement | null>(null)
@@ -83,18 +90,22 @@ export default function StoryPlayer({ story }: StoryProps) {
             try {
                 const branch = await getBranch(story.id, story.initial_branch_id)
                 dispatch({ type: "SET_INITIAL_BRANCH", branch: branch })
-                if (audioRef.current) {
-                    audioRef.current.currentTime = 0
-                    audioRef.current.src = branch.audio_url
-                    audioRef.current.play().catch(error => console.error("Error playing audio:", error))
-                    console.log("Called play at offset", audioRef.current.currentTime)
-                }
             } catch (error) {
                 console.error("Error fetching initial branch:", error)
             }
         }
         fetchInitialBranch()
     }, [story.id, story.initial_branch_id])
+
+    useEffect(() => {
+        if (!state.currentBranch || !state.isPlaying) return
+        const audio = audioRef.current
+        if (!audio) return
+
+        audio.src = state.currentBranch.audio_url
+        audio.currentTime = 0
+        audio.play().catch(error => console.error("Error playing audio:", error))
+    }, [state.currentBranch, state.isPlaying])
 
     useEffect(() => {
         if (!state.currentBranch) return
@@ -128,7 +139,10 @@ export default function StoryPlayer({ story }: StoryProps) {
         const checkTimeRemaining = () => {
             if (audio.paused) return
             const timeRemaining = audio.duration - audio.currentTime
-            if (timeRemaining >= 3) return
+            if (timeRemaining >= 3) {
+                setTimeout(checkTimeRemaining, 100)
+                return
+            }
 
             dispatch({ type: "DISABLE_BUTTONS" })
             if (state.sentiment === null) {
@@ -142,11 +156,11 @@ export default function StoryPlayer({ story }: StoryProps) {
             dispatch({ type: "TRANSITION_TO_NEXT_BRANCH" })
         }
 
-        const intervalId = setInterval(checkTimeRemaining, 100)
+        const timeoutId = setTimeout(checkTimeRemaining, 100)
         audio.addEventListener("ended", handleAudioEnd)
 
         return () => {
-            clearInterval(intervalId)
+            clearTimeout(timeoutId)
             audio.removeEventListener("ended", handleAudioEnd)
         }
     }, [state.sentiment, state.upcomingBranch])
@@ -168,6 +182,10 @@ export default function StoryPlayer({ story }: StoryProps) {
         }
     }
 
+    const handlePlayClick = () => {
+        dispatch({ type: "START_PLAYING" })
+    }
+
     return (
         <Flex direction="column" align="center">
             <Heading size="6" mb="4">
@@ -176,24 +194,37 @@ export default function StoryPlayer({ story }: StoryProps) {
             {/* biome-ignore lint/a11y/useMediaCaption: Not for now. */}
             <audio ref={audioRef} style={{ display: "none" }} />
             <Flex direction="column" gap="4">
-                <Button
-                    size="4"
-                    onClick={() => handleSentimentChange("positive")}
-                    style={{ width: "200px", height: "200px", fontSize: "100px" }}
-                    variant={state.sentiment === "positive" ? "solid" : "soft"}
-                    disabled={state.isButtonsDisabled}
-                >
-                    +
-                </Button>
-                <Button
-                    size="4"
-                    onClick={() => handleSentimentChange("negative")}
-                    style={{ width: "200px", height: "200px", fontSize: "100px" }}
-                    variant={state.sentiment === "negative" ? "solid" : "soft"}
-                    disabled={state.isButtonsDisabled}
-                >
-                    -
-                </Button>
+                {state.isPlaying ? (
+                    <>
+                        <Button
+                            size="4"
+                            onClick={() => handleSentimentChange("positive")}
+                            style={{ width: "200px", height: "200px", fontSize: "100px" }}
+                            variant={state.sentiment === "positive" ? "solid" : "soft"}
+                            disabled={state.isButtonsDisabled}
+                        >
+                            +
+                        </Button>
+                        <Button
+                            size="4"
+                            onClick={() => handleSentimentChange("negative")}
+                            style={{ width: "200px", height: "200px", fontSize: "100px" }}
+                            variant={state.sentiment === "negative" ? "solid" : "soft"}
+                            disabled={state.isButtonsDisabled}
+                        >
+                            -
+                        </Button>
+                    </>
+                ) : (
+                    <Button
+                        size="4"
+                        onClick={handlePlayClick}
+                        style={{ width: "200px", height: "200px" }}
+                        disabled={!state.currentBranch || state.isPlaying}
+                    >
+                        <PlayIcon width="100" height="100" />
+                    </Button>
+                )}
             </Flex>
         </Flex>
     )
