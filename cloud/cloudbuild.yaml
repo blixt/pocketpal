@@ -2,7 +2,7 @@ steps:
 - id: pull-cached-docker-image
   name: gcr.io/cloud-builders/docker
   entrypoint: bash
-  args: ['-c', 'docker pull europe-southwest1-docker.pkg.dev/$PROJECT_ID/pocketpal-repo/$_REPO_NAME:$_TAG || exit 0']
+  args: ['-c', 'docker pull europe-west1-docker.pkg.dev/$PROJECT_ID/pocketpal-repo-eu/$_REPO_NAME:$_TAG || exit 0']
 - id: build-docker-image
   name: gcr.io/cloud-builders/docker
   dir: $_DIR
@@ -10,7 +10,7 @@ steps:
   args:
   - -uxc
   - |
-      docker build --cache-from europe-southwest1-docker.pkg.dev/$PROJECT_ID/pocketpal-repo/$_REPO_NAME:$_TAG -t europe-southwest1-docker.pkg.dev/$PROJECT_ID/pocketpal-repo/$_REPO_NAME:$_TAG -f $_DOCKERFILE .
+      docker build --cache-from europe-west1-docker.pkg.dev/$PROJECT_ID/pocketpal-repo-eu/$_REPO_NAME:$_TAG -t europe-west1-docker.pkg.dev/$PROJECT_ID/pocketpal-repo-eu/$_REPO_NAME:$_TAG -f $_DOCKERFILE .
 - id: push-docker-image
   name: gcr.io/cloud-builders/docker
   dir: $_DIR
@@ -18,7 +18,7 @@ steps:
   args:
   - -uxc
   - |
-      docker push europe-southwest1-docker.pkg.dev/$PROJECT_ID/pocketpal-repo/$_REPO_NAME:$_TAG
+      docker push europe-west1-docker.pkg.dev/$PROJECT_ID/pocketpal-repo-eu/$_REPO_NAME:$_TAG
   waitFor: ['build-docker-image']
 
 substitutions:
