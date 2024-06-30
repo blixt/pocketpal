@@ -5,6 +5,7 @@ data/
 react/
 
 # Environments
+.env
 .env/
 .venv/
 env/
