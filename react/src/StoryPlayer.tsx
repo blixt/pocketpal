@@ -1,4 +1,12 @@
-import { MinusIcon, PauseIcon, PlayIcon, PlusIcon, ReloadIcon } from "@radix-ui/react-icons"
+import {
+    LightningBoltIcon,
+    MinusIcon,
+    PauseIcon,
+    PlayIcon,
+    PlusIcon,
+    ReloadIcon,
+    TimerIcon,
+} from "@radix-ui/react-icons"
 import { Button, Flex, Heading, IconButton, Text } from "@radix-ui/themes"
 import { useEffect, useReducer, useRef } from "react"
 import { getBranch, type Branch, type Story } from "./api"
@@ -16,6 +24,7 @@ type State = {
     sentiment: "positive" | "negative" | null
     hasAudioEnded: boolean
     isPlaying: boolean
+    playbackRate: number
 }
 
 type Action =
@@ -24,8 +33,10 @@ type Action =
     | { type: "SET_SENTIMENT"; sentiment: "positive" | "negative" | null }
     | { type: "AUDIO_ENDED" }
     | { type: "AUDIO_PAUSED" }
+    | { type: "AUDIO_PLAYED" }
     | { type: "TRANSITION_TO_NEXT_BRANCH"; fromBranchId: string }
     | { type: "TOGGLE_PLAYING" }
+    | { type: "TOGGLE_PLAYBACK_SPEED" }
 
 function reducer(state: State, action: Action): State {
     switch (action.type) {
@@ -71,6 +82,10 @@ function reducer(state: State, action: Action): State {
             return { ...state, isPlaying: !state.isPlaying }
         case "AUDIO_PAUSED":
             return { ...state, isPlaying: false }
+        case "AUDIO_PLAYED":
+            return { ...state, isPlaying: true }
+        case "TOGGLE_PLAYBACK_SPEED":
+            return { ...state, playbackRate: state.playbackRate === 1 ? 2 : 1 }
         default:
             throw new Error("Unexpected action type")
     }
@@ -93,6 +108,7 @@ export default function StoryPlayer({ story, autoplay = false, autoContinue = tr
         sentiment: null,
         hasAudioEnded: false,
         isPlaying: autoplay,
+        playbackRate: 1,
     })
 
     const audioRef = useRef<HTMLAudioElement | null>(null)
@@ -122,12 +138,14 @@ export default function StoryPlayer({ story, autoplay = false, autoContinue = tr
             audio.src = state.currentBranch.audio_url
         }
 
+        audio.playbackRate = state.playbackRate
+
         if (state.isPlaying) {
             audio.play().catch(error => console.error("Error playing audio:", error))
         } else {
             audio.pause()
         }
-    }, [state.currentBranch, state.isPlaying])
+    }, [state.currentBranch, state.isPlaying, state.playbackRate])
 
     useEffect(() => {
         if (!state.currentBranch || !state.sentiment) return
@@ -185,14 +203,20 @@ export default function StoryPlayer({ story, autoplay = false, autoContinue = tr
             dispatch({ type: "AUDIO_PAUSED" })
         }
 
+        const handleAudioPlay = () => {
+            dispatch({ type: "AUDIO_PLAYED" })
+        }
+
         const timeoutId = setTimeout(checkTimeRemaining, 100)
         audio.addEventListener("ended", handleAudioEnd)
         audio.addEventListener("pause", handleAudioPause)
+        audio.addEventListener("play", handleAudioPlay)
 
         return () => {
             clearTimeout(timeoutId)
             audio.removeEventListener("ended", handleAudioEnd)
             audio.removeEventListener("pause", handleAudioPause)
+            audio.removeEventListener("play", handleAudioPlay)
         }
     }, [state.sentiment, state.upcomingBranch, autoContinue, state.currentBranch])
 
@@ -227,20 +251,35 @@ export default function StoryPlayer({ story, autoplay = false, autoContinue = tr
         dispatch({ type: "TOGGLE_PLAYING" })
     }
 
+    const handlePlaybackSpeedClick = () => {
+        dispatch({ type: "TOGGLE_PLAYBACK_SPEED" })
+    }
+
     const handleReload = () => {
         window.location.reload()
     }
 
     return (
-        <Flex direction="column" gap="2" align="center">
-            <Flex align="center" direction={{ initial: "column", sm: "row" }} gap="2">
-                <IconButton variant="classic" radius="full" onClick={handlePlayPauseClick}>
-                    {state.isPlaying ? <PauseIcon /> : <PlayIcon />}
+        <Flex direction="column" gap="4" align="center">
+            <Flex direction="row" gap="2">
+                <IconButton size="4" variant="classic" radius="full" onClick={handlePlayPauseClick}>
+                    {state.isPlaying ? <PauseIcon width="24" height="24" /> : <PlayIcon width="24" height="24" />}
                 </IconButton>
-                <Heading size={{ initial: "4", sm: "6" }}>{story.title}</Heading>
+                <IconButton size="4" variant="classic" radius="full" onClick={handlePlaybackSpeedClick}>
+                    {state.playbackRate === 1 ? (
+                        <TimerIcon width="24" height="24" />
+                    ) : (
+                        <LightningBoltIcon width="24" height="24" />
+                    )}
+                </IconButton>
             </Flex>
-            <Text>{story.description}</Text>
-            <Flex direction={{ initial: "column", sm: "row" }} gap="4" mt="4">
+            <Flex align="center" direction="column">
+                <Heading size={{ initial: "4", sm: "6" }} mb="2">
+                    {story.title}
+                </Heading>
+                <Text>{story.description}</Text>
+            </Flex>
+            <Flex direction={{ initial: "column", sm: "row" }} gap="4">
                 {state.currentBranch?.leaf ? (
                     <Button
                         size="4"
