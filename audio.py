@@ -1,4 +1,5 @@
 import os
+from typing import Dict, Literal, Tuple
 
 import requests
 from elevenlabs import VoiceSettings
@@ -9,24 +10,32 @@ ELEVENLABS_API_KEY = os.getenv("ELEVENLABS_API_KEY")
 BUCKET_NAME = "pocketpal-bucket"
 
 
+VOICES: Dict[Literal["en", "es"], Tuple[str, str]] = {
+    "en": ("iiidtqDt9FBdT1vfBluA", "eleven_turbo_v2"),
+    "es": ("Nh2zY9kknu6z4pZy6FhD", "eleven_multilingual_v2"),
+}
+
+
 def get_full_url(destination_blob_name: str) -> str:
     """Returns the full URL for a given blob name in the bucket."""
     return f"https://storage.googleapis.com/{BUCKET_NAME}/{destination_blob_name}"
 
 
-def text_to_audio(text: str, destination_blob_name: str):
+def text_to_audio(language: Literal["en", "es"], text: str, destination_blob_name: str):
     """Convert text to audio"""
+
+    voice_id, model_id = VOICES[language]
 
     client = ElevenLabs(
         api_key=ELEVENLABS_API_KEY,
     )
 
     response = client.text_to_speech.convert(
-        voice_id="iiidtqDt9FBdT1vfBluA",
+        voice_id=voice_id,
         optimize_streaming_latency="0",
         output_format="mp3_22050_32",
         text=text,
-        model_id="eleven_turbo_v2",
+        model_id=model_id,
         voice_settings=VoiceSettings(
             stability=0.0,
             similarity_boost=1.0,
