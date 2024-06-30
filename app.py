@@ -1,10 +1,13 @@
 import json
-import string
+import logging
 import random
-from flask import Flask, render_template, abort, request, jsonify
+import string
+
+from flask import Flask, abort, jsonify, render_template, request
 from flask_bootstrap import Bootstrap
-from audio import text_to_audio, get_full_url
-from db import run_query, run_query_with_session, Session
+
+from audio import get_full_url, text_to_audio
+from db import Session, run_query, run_query_with_session
 from llm import openai_prompt
 from prompts import get_continue_prompt, get_initial_prompt
 
@@ -12,6 +15,12 @@ app = Flask(__name__)
 Bootstrap(app)
 
 MAX_STORY_LENGTH = 10000 # aprox 10 branches
+logging.basicConfig(
+    format="%(asctime)s - %(message)s", 
+    datefmt="%Y-%m-%d %H:%M:%S", 
+    level=logging.INFO,
+)
+
 
 def base62(length):
     """
@@ -24,6 +33,7 @@ def base62(length):
 # Entrypoint for visitors to the app
 @app.route("/")
 @app.route("/story/<story_id>")
+@app.route("/visualize/<story_id>")
 def index(story_id=None):
     return render_template("index.html")
 
@@ -44,10 +54,12 @@ def create_story():
     # Generate initial branch
     story_id = base62(10)
     initial_branch_id = base62(10)
+    logging.info(f"Creating a new story: story {story_id} and intial branch {initial_branch_id}")
 
     # Generate audio before the transaction
     audio_url = f"audios/{story_id}_{initial_branch_id}.mp3"
-    text_to_audio(story_info["paragraph"], audio_url, story_info["lang"])
+    text_to_audio(story_info["lang"], story_info["paragraph"], audio_url)
+    logging.info(f"Audio generated for new story: story {story_id} and intial branch {initial_branch_id}")
 
     # Create story and initial branch within a transaction
     with Session() as session:
@@ -85,6 +97,7 @@ def create_story():
         except:
             session.rollback()
             raise
+    logging.info(f"DB insertions made for story {story_id} and intial branch {initial_branch_id}")
 
     return jsonify(
         {
@@ -101,6 +114,7 @@ def create_story():
 @app.route("/v1/story/<story_id>/")
 def get_story(story_id):
     """Get story details"""
+    logging.info(f"Fetching story {story_id}")
     story = run_query(
         """
         SELECT story_id, initial_branch_id, title, description, initial_prompt, lang
@@ -165,6 +179,7 @@ def get_branch(story_id, branch_id):
 
     # Check and create children branches
     for sentiment in ["positive", "negative"]:
+        logging.info(f"Fetching retrieving {sentiment} node for branch {branch_id} and story {story_id}")
         child_branch = run_query(
             """
             SELECT branch_id, status
@@ -182,6 +197,7 @@ def get_branch(story_id, branch_id):
         # Create new branch or update failed branch.
         # To reach a 0.01% chance of collision, you need approximately 13M items.
         new_branch_id = child_branch.branch_id if child_branch else base62(10)
+        logging.info(f"Generating or retrieving node branch {new_branch_id} for story {story_id}")
 
         if not child_branch:
             run_query(
@@ -197,6 +213,7 @@ def get_branch(story_id, branch_id):
             )
 
         # Generate content
+        logging.info(f"Generating story content for branch {new_branch_id} for story {story_id}")
         story_content = run_query(
             """
             WITH RECURSIVE branch_history AS (
@@ -218,14 +235,19 @@ def get_branch(story_id, branch_id):
         ).scalar()
 
         # Generate new content and audio
+        logging.info(f"Generating prompt and audio for branch {new_branch_id} and story {story_id}")
         if len(story_content) > MAX_STORY_LENGTH:
             prompt = get_final_prompt(story_content, sentiment, lang)
+            logging.info(f"Final prompt generated for branch {new_branch_id} and story {story_id}")
         else:
             prompt = get_continue_prompt(story_content, sentiment, lang)
+        logging.info(f"Prompt generated for branch {new_branch_id} and story {story_id}")
 
         new_paragraph = openai_prompt(prompt)
+        logging.info(f"Paragraph generated for branch {new_branch_id} and story {story_id}")
         audio_url = f"audios/{story_id}_{new_branch_id}.mp3"
-        text_to_audio(new_paragraph, audio_url, lang)
+        text_to_audio(lang, new_paragraph, audio_url)
+        logging.info(f"Audio generated for branch {new_branch_id} and story {story_id}")
 
         # Update child branch with new content and audio
         run_query(
@@ -256,8 +278,10 @@ def get_branch(story_id, branch_id):
             new_branch_id=new_branch_id,
             branch_id=branch_id,
         )
+        logging.info(f"DB update for branch {new_branch_id} and story {story_id} done")
 
     # Fetch the updated branch details
+    logging.info(f"Fetching branch {branch_id} for story {story_id}")
     branch = run_query(
         """
         SELECT *

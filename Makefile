@@ -41,5 +41,5 @@ push:
 
 deploy:
 	@gcloud run deploy "pocketpalrun" \
-	--image europe-southwest1-docker.pkg.dev/pocketpal-427909/pocketpal-repo/pocketpal:latest \
-	--region europe-southwest1
+	--image europe-west1-docker.pkg.dev/pocketpal-427909/pocketpal-repo-eu/pocketpal:latest \
+	--region europe-west1

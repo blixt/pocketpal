@@ -216,7 +216,7 @@ export default function StoryPlayer({ story, autoplay = false }: StoryProps) {
                             size="4"
                             onClick={() => handleSentimentChange("positive")}
                             style={{ width: "200px", height: "200px", fontSize: "100px" }}
-                            variant={state.sentiment === "positive" ? "solid" : "soft"}
+                            variant={state.sentiment === "positive" ? "solid" : "outline"}
                             disabled={state.isButtonsDisabled}
                         >
                             +
@@ -225,7 +225,7 @@ export default function StoryPlayer({ story, autoplay = false }: StoryProps) {
                             size="4"
                             onClick={() => handleSentimentChange("negative")}
                             style={{ width: "200px", height: "200px", fontSize: "100px" }}
-                            variant={state.sentiment === "negative" ? "solid" : "soft"}
+                            variant={state.sentiment === "negative" ? "solid" : "outline"}
                             disabled={state.isButtonsDisabled}
                         >
                             -
