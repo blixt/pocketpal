@@ -11,3 +11,7 @@ CREATE TABLE IF NOT EXISTS stories (
 );
 
 CREATE INDEX idx_stories_initial_branch_id ON stories(initial_branch_id);
+
+ALTER TABLE stories ADD COLUMN IF NOT EXISTS lang TEXT CHECK (lang IN ('en', 'es')) DEFAULT 'en';
+
+UPDATE stories SET lang = 'en' WHERE lang IS NULL;
