@@ -1,5 +1,5 @@
-import { MinusIcon, PlayIcon, PlusIcon } from "@radix-ui/react-icons"
-import { Button, Flex, Heading, Text } from "@radix-ui/themes"
+import { MinusIcon, PauseIcon, PlayIcon, PlusIcon, ReloadIcon } from "@radix-ui/react-icons"
+import { Button, Flex, Heading, IconButton, Text } from "@radix-ui/themes"
 import { useEffect, useReducer, useRef } from "react"
 import { getBranch, type Branch, type Story } from "./api"
 import toneSrc from "./audio/tone.mp3"
@@ -20,12 +20,12 @@ type State = {
 
 type Action =
     | { type: "SET_INITIAL_BRANCH"; branch: Branch }
-    | { type: "SET_UPCOMING_BRANCH"; branch: Branch }
+    | { type: "SET_UPCOMING_BRANCH"; branch: Branch; fromBranchId: string }
     | { type: "SET_SENTIMENT"; sentiment: "positive" | "negative" | null }
     | { type: "AUDIO_ENDED" }
     | { type: "AUDIO_PAUSED" }
-    | { type: "TRANSITION_TO_NEXT_BRANCH" }
-    | { type: "START_PLAYING" }
+    | { type: "TRANSITION_TO_NEXT_BRANCH"; fromBranchId: string }
+    | { type: "TOGGLE_PLAYING" }
 
 function reducer(state: State, action: Action): State {
     switch (action.type) {
@@ -35,18 +35,29 @@ function reducer(state: State, action: Action): State {
             }
             return { ...state, currentBranch: action.branch }
         case "SET_UPCOMING_BRANCH":
+            if (state.currentBranch?.id !== action.fromBranchId) {
+                console.warn(
+                    `Cannot set upcoming branch: fromBranchId (${action.fromBranchId}) does not match currentBranch.id (${state.currentBranch?.id})`,
+                )
+                return state
+            }
             return { ...state, upcomingBranch: action.branch }
         case "SET_SENTIMENT":
             return { ...state, sentiment: action.sentiment }
         case "AUDIO_ENDED":
-            // Make sure to force isPlaying to be true if audio ends. While it
-            // may seem counter-intuitive, audio ending means it was playing,
-            // and should keep playing once the next audio loads. Otherwise, the
-            // pause event that happens when audio ends might stop the flow.
-            return { ...state, hasAudioEnded: true, isPlaying: true }
+            return { ...state, hasAudioEnded: true }
         case "TRANSITION_TO_NEXT_BRANCH":
+            if (state.currentBranch?.id !== action.fromBranchId) {
+                console.warn(
+                    `Cannot transition to next branch: fromBranchId (${action.fromBranchId}) does not match currentBranch.id (${state.currentBranch?.id})`,
+                )
+                return state
+            }
             if (!state.upcomingBranch) {
                 throw new Error("Cannot transition to next branch: upcoming branch is null")
+            }
+            if (!state.sentiment) {
+                throw new Error("Cannot transition to next branch: sentiment is not set")
             }
             return {
                 ...state,
@@ -54,13 +65,11 @@ function reducer(state: State, action: Action): State {
                 upcomingBranch: null,
                 sentiment: null,
                 hasAudioEnded: false,
+                isPlaying: true,
             }
-        case "START_PLAYING":
-            return { ...state, isPlaying: true }
+        case "TOGGLE_PLAYING":
+            return { ...state, isPlaying: !state.isPlaying }
         case "AUDIO_PAUSED":
-            // If the audio has ended, then this pause event was probably not
-            // because of a user action, so we ignore it.
-            if (state.hasAudioEnded) return state
             return { ...state, isPlaying: false }
         default:
             throw new Error("Unexpected action type")
@@ -105,17 +114,23 @@ export default function StoryPlayer({ story, autoplay = false, autoContinue = tr
     }, [story.id, story.initial_branch_id])
 
     useEffect(() => {
-        if (!state.currentBranch || !state.isPlaying) return
+        if (!state.currentBranch) return
         const audio = audioRef.current
         if (!audio) return
 
-        audio.src = state.currentBranch.audio_url
-        audio.currentTime = 0
-        audio.play().catch(error => console.error("Error playing audio:", error))
+        if (state.currentBranch.audio_url !== audio.src) {
+            audio.src = state.currentBranch.audio_url
+        }
+
+        if (state.isPlaying) {
+            audio.play().catch(error => console.error("Error playing audio:", error))
+        } else {
+            audio.pause()
+        }
     }, [state.currentBranch, state.isPlaying])
 
     useEffect(() => {
-        if (!state.currentBranch) return
+        if (!state.currentBranch || !state.sentiment) return
         const currentBranch = state.currentBranch
 
         const fetchUpcomingBranch = async () => {
@@ -126,9 +141,9 @@ export default function StoryPlayer({ story, autoplay = false, autoContinue = tr
 
             try {
                 const branch = await getBranch(currentBranch.story_id, branchId)
-                dispatch({ type: "SET_UPCOMING_BRANCH", branch: branch })
-                if (state.hasAudioEnded) {
-                    dispatch({ type: "TRANSITION_TO_NEXT_BRANCH" })
+                dispatch({ type: "SET_UPCOMING_BRANCH", branch: branch, fromBranchId: currentBranch.id })
+                if (state.hasAudioEnded && state.sentiment) {
+                    dispatch({ type: "TRANSITION_TO_NEXT_BRANCH", fromBranchId: currentBranch.id })
                 }
             } catch (error) {
                 console.error("Error fetching upcoming branch:", error)
@@ -143,7 +158,6 @@ export default function StoryPlayer({ story, autoplay = false, autoContinue = tr
         const toneAudio = toneAudioRef.current
         if (!audio || !toneAudio) return
 
-        // If the audio is nearing the end, lock in the user's choice.
         const checkTimeRemaining = () => {
             if (audio.paused || !audio.duration) return
             const timeRemaining = audio.duration - audio.currentTime
@@ -159,11 +173,12 @@ export default function StoryPlayer({ story, autoplay = false, autoContinue = tr
 
         const handleAudioEnd = () => {
             dispatch({ type: "AUDIO_ENDED" })
-            if (!autoContinue) {
+            if (state.sentiment === null) {
+                console.log("Playing tone ✨")
                 toneAudio.play().catch(error => console.error("Error playing tone audio:", error))
+            } else if (state.upcomingBranch && state.sentiment && state.currentBranch) {
+                dispatch({ type: "TRANSITION_TO_NEXT_BRANCH", fromBranchId: state.currentBranch.id })
             }
-            if (!state.upcomingBranch) return
-            dispatch({ type: "TRANSITION_TO_NEXT_BRANCH" })
         }
 
         const handleAudioPause = () => {
@@ -179,75 +194,86 @@ export default function StoryPlayer({ story, autoplay = false, autoContinue = tr
             audio.removeEventListener("ended", handleAudioEnd)
             audio.removeEventListener("pause", handleAudioPause)
         }
-    }, [state.sentiment, state.upcomingBranch, autoContinue])
+    }, [state.sentiment, state.upcomingBranch, autoContinue, state.currentBranch])
 
     const handleSentimentChange = async (sentiment: "positive" | "negative") => {
         dispatch({ type: "SET_SENTIMENT", sentiment: state.sentiment === sentiment ? null : sentiment })
-        if (state.currentBranch) {
-            try {
-                // Refetch the current branch data
-                const updatedBranch = await getBranch(state.currentBranch.story_id, state.currentBranch.id)
+        if (!state.currentBranch) return
+        try {
+            const nextBranchId =
+                sentiment === "positive"
+                    ? state.currentBranch.positive_branch_id
+                    : state.currentBranch.negative_branch_id
 
-                // Check if the appropriate branch ID is available
-                const nextBranchId =
-                    sentiment === "positive" ? updatedBranch.positive_branch_id : updatedBranch.negative_branch_id
-
-                if (nextBranchId) {
-                    // Fetch the next branch if available
-                    const nextBranch = await getBranch(state.currentBranch.story_id, nextBranchId)
-                    dispatch({ type: "SET_UPCOMING_BRANCH", branch: nextBranch })
-
-                    if (state.hasAudioEnded) {
-                        dispatch({ type: "TRANSITION_TO_NEXT_BRANCH" })
-                    }
-                } else {
-                    console.warn(`No ${sentiment} branch available for the current branch.`)
-                }
-            } catch (error) {
-                console.error("Error fetching updated branch data:", error)
+            if (!nextBranchId) {
+                console.warn(`No ${sentiment} branch available for the current branch.`)
+                return
             }
+
+            if (state.upcomingBranch?.id !== nextBranchId) {
+                const nextBranch = await getBranch(state.currentBranch.story_id, nextBranchId)
+                dispatch({ type: "SET_UPCOMING_BRANCH", branch: nextBranch, fromBranchId: state.currentBranch.id })
+            }
+
+            if (state.hasAudioEnded) {
+                dispatch({ type: "TRANSITION_TO_NEXT_BRANCH", fromBranchId: state.currentBranch.id })
+            }
+        } catch (error) {
+            console.error("Error fetching updated branch data:", error)
         }
     }
 
-    const handlePlayClick = () => {
-        dispatch({ type: "START_PLAYING" })
+    const handlePlayPauseClick = () => {
+        dispatch({ type: "TOGGLE_PLAYING" })
+    }
+
+    const handleReload = () => {
+        window.location.reload()
     }
 
     return (
-        <Flex direction="column" gap="4" align="center">
-            <Heading size="6">{story.title}</Heading>
+        <Flex direction="column" gap="2" align="center">
+            <Flex align="center" direction={{ initial: "column", sm: "row" }} gap="2">
+                <IconButton variant="classic" radius="full" onClick={handlePlayPauseClick}>
+                    {state.isPlaying ? <PauseIcon /> : <PlayIcon />}
+                </IconButton>
+                <Heading size={{ initial: "4", sm: "6" }}>{story.title}</Heading>
+            </Flex>
             <Text>{story.description}</Text>
-            <Flex direction="column" gap="4">
-                {state.isPlaying ? (
+            <Flex direction={{ initial: "column", sm: "row" }} gap="4" mt="4">
+                {state.currentBranch?.leaf ? (
+                    <Button
+                        size="4"
+                        onClick={handleReload}
+                        style={{ width: "150px", height: "150px" }}
+                        variant="outline"
+                        color="blue"
+                    >
+                        <ReloadIcon width="100" height="100" />
+                    </Button>
+                ) : (
                     <>
                         <Button
                             size="4"
                             onClick={() => handleSentimentChange("positive")}
-                            style={{ width: "200px", height: "200px", fontSize: "100px" }}
+                            style={{ width: "150px", height: "150px" }}
                             variant={state.sentiment === "positive" ? "solid" : "outline"}
                             color="green"
+                            disabled={!state.currentBranch}
                         >
                             <PlusIcon width="100" height="100" />
                         </Button>
                         <Button
                             size="4"
                             onClick={() => handleSentimentChange("negative")}
-                            style={{ width: "200px", height: "200px", fontSize: "100px" }}
+                            style={{ width: "150px", height: "150px" }}
                             variant={state.sentiment === "negative" ? "solid" : "outline"}
                             color="red"
+                            disabled={!state.currentBranch}
                         >
                             <MinusIcon width="100" height="100" />
                         </Button>
                     </>
-                ) : (
-                    <Button
-                        size="4"
-                        onClick={handlePlayClick}
-                        style={{ width: "200px", height: "200px" }}
-                        disabled={!state.currentBranch || state.isPlaying}
-                    >
-                        <PlayIcon width="100" height="100" />
-                    </Button>
                 )}
             </Flex>
             {/* biome-ignore lint/a11y/useMediaCaption: Not for now. */}

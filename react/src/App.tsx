@@ -89,7 +89,8 @@ export default function App() {
                             isVisualizing ? (
                                 <StoryVisualizer story={story} />
                             ) : (
-                                <StoryPlayer story={story} autoplay={autoplay} />
+                                // We disable auto continue for demos to make it more interactive!
+                                <StoryPlayer story={story} autoplay={autoplay} autoContinue={false} />
                             )
                         ) : (
                             <CreateStory onCreateStory={handleCreateStory} />

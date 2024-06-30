@@ -17,6 +17,7 @@ export interface Branch {
     story: string
     positive_branch_id: string | null
     negative_branch_id: string | null
+    leaf: boolean
 }
 
 async function api<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
