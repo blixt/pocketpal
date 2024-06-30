@@ -16,7 +16,4 @@ __pycache__/
 /static
 /templates
 
-# MP3
-*.mp3
-
 /.env
