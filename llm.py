@@ -1,11 +1,10 @@
 import os
-from langchain_openai import OpenAI
+from langchain_openai import ChatOpenAI
+from langchain.schema import HumanMessage
 
 
 def openai_prompt(prompt: str) -> str:
-    
-    llm = OpenAI(
-        model_name='gpt-3.5-turbo-instruct', 
-        openai_api_key=os.getenv("OPENAI_API_KEY")
-    )
-    return llm.invoke(prompt)
+    chat = ChatOpenAI(model_name="gpt-4", openai_api_key=os.getenv("OPENAI_API_KEY"))
+    messages = [HumanMessage(content=prompt)]
+    response = chat.invoke(messages)
+    return response.content

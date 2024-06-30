@@ -18,3 +18,5 @@ __pycache__/
 
 # MP3
 *.mp3
+
+/.env

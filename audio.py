@@ -6,7 +6,13 @@ from elevenlabs.client import ElevenLabs
 from google.cloud import storage
 
 ELEVENLABS_API_KEY = os.getenv("ELEVENLABS_API_KEY")
-bucket_name = 'pocketpal-bucket'
+BUCKET_NAME = "pocketpal-bucket"
+
+
+def get_full_url(destination_blob_name: str) -> str:
+    """Returns the full URL for a given blob name in the bucket."""
+    return f"https://storage.googleapis.com/{BUCKET_NAME}/{destination_blob_name}"
+
 
 def text_to_audio(text: str, destination_blob_name: str):
     """Convert text to audio"""
@@ -30,10 +36,11 @@ def text_to_audio(text: str, destination_blob_name: str):
     )
 
     # Save in storage
-    audio_data = b"".join(response)
     client = storage.Client(project="pocketpal-427909")
-    bucket = client.get_bucket(bucket_name)
+    bucket = client.get_bucket(BUCKET_NAME)
     blob = bucket.blob(destination_blob_name)
-    blob.upload_from_string(audio_data)
 
-    print(f'File uploaded to {destination_blob_name} in bucket {bucket_name}.')
+    # Upload the MP3 file to a public bucket
+    blob.upload_from_string(b"".join(response), content_type="audio/mpeg")
+
+    print(f"File uploaded to {destination_blob_name} in bucket {BUCKET_NAME}.")
