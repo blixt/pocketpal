@@ -11,6 +11,7 @@ from prompts import get_continue_prompt, get_initial_prompt
 app = Flask(__name__)
 Bootstrap(app)
 
+MAX_STORY_LENGTH = 10000 # aprox 10 branches
 
 def base62(length):
     """
@@ -217,7 +218,11 @@ def get_branch(story_id, branch_id):
         ).scalar()
 
         # Generate new content and audio
-        prompt = get_continue_prompt(story_content, sentiment, lang)
+        if len(story_content) > MAX_STORY_LENGTH:
+            prompt = get_final_prompt(story_content, sentiment, lang)
+        else:
+            prompt = get_continue_prompt(story_content, sentiment, lang)
+
         new_paragraph = openai_prompt(prompt)
         audio_url = f"audios/{story_id}_{new_branch_id}.mp3"
         text_to_audio(new_paragraph, audio_url, lang)
@@ -261,6 +266,9 @@ def get_branch(story_id, branch_id):
         """,
         branch_id=branch_id,
     ).fetchone()
+
+    # TODO handle end of story in client
+    # return NULL id?
 
     return jsonify(
         {
