@@ -53,8 +53,13 @@ function reducer(state: State, action: Action): State {
                 return state
             }
             return { ...state, upcomingBranch: action.branch }
-        case "SET_SENTIMENT":
-            return { ...state, sentiment: action.sentiment }
+        case "SET_SENTIMENT": {
+            const newState: State = { ...state, sentiment: action.sentiment }
+            if (!newState.hasAudioEnded) {
+                newState.isPlaying = true
+            }
+            return newState
+        }
         case "AUDIO_ENDED":
             return { ...state, hasAudioEnded: true }
         case "TRANSITION_TO_NEXT_BRANCH":
@@ -63,6 +68,9 @@ function reducer(state: State, action: Action): State {
                     `Cannot transition to next branch: fromBranchId (${action.fromBranchId}) does not match currentBranch.id (${state.currentBranch?.id})`,
                 )
                 return state
+            }
+            if (state.currentBranch.id === state.upcomingBranch?.id) {
+                throw new Error("Cannot transition to next branch: current and upcoming branch are the same")
             }
             if (!state.upcomingBranch) {
                 throw new Error("Cannot transition to next branch: upcoming branch is null")
@@ -93,10 +101,8 @@ function reducer(state: State, action: Action): State {
 
 function withLogging(reducer: (state: State, action: Action) => State) {
     return (state: State, action: Action) => {
-        console.log("Previous state:", state)
-        console.log("Action:", action)
         const nextState = reducer(state, action)
-        console.log("Next state:", nextState)
+        console.log({ previousState: state, nextState, action })
         return nextState
     }
 }
@@ -179,13 +185,21 @@ export default function StoryPlayer({ story, autoplay = false, autoContinue = tr
         const checkTimeRemaining = () => {
             if (audio.paused || !audio.duration) return
             const timeRemaining = audio.duration - audio.currentTime
-            if (timeRemaining >= 2) {
+            if (timeRemaining >= 3) {
                 setTimeout(checkTimeRemaining, 100)
                 return
             }
-
-            if (autoContinue && state.sentiment === null) {
+            if (state.sentiment !== null) {
+                // The user already made a choice.
+                return
+            }
+            if (autoContinue) {
+                // Automatically pick positive for the user.
                 handleSentimentChange("positive")
+                preloadUpcomingBranches(state.currentBranch, "positive")
+            } else {
+                // Preload both options so that whichever option the user picks, it plays sooner.
+                preloadUpcomingBranches(state.currentBranch)
             }
         }
 
@@ -321,4 +335,25 @@ export default function StoryPlayer({ story, autoplay = false, autoContinue = tr
             <audio ref={toneAudioRef} src={toneSrc} style={{ display: "none" }} />
         </Flex>
     )
+}
+
+function preloadUpcomingBranches(currentBranch: Branch | null, sentiment?: "positive" | "negative") {
+    if (!currentBranch) {
+        console.warn("Cannot preload upcoming branches: currentBranch is null")
+        return
+    }
+    if (!sentiment || sentiment === "positive") {
+        if (currentBranch.positive_branch_id) {
+            getBranch(currentBranch.story_id, currentBranch.positive_branch_id)
+        } else {
+            console.warn("Cannot preload positive branch: positive_branch_id is null")
+        }
+    }
+    if (!sentiment || sentiment === "negative") {
+        if (currentBranch.negative_branch_id) {
+            getBranch(currentBranch.story_id, currentBranch.negative_branch_id)
+        } else {
+            console.warn("Cannot preload negative branch: negative_branch_id is null")
+        }
+    }
 }
