@@ -44,6 +44,7 @@ def create_story():
 
     # Generate content for initial branch
     story_info = json.loads(openai_prompt(get_initial_prompt(story_premise)))
+    assert story_info["lang"]
     assert story_info["title"]
     assert story_info["description"]
     assert story_info["paragraph"]
@@ -55,7 +56,7 @@ def create_story():
 
     # Generate audio before the transaction
     audio_url = f"audios/{story_id}_{initial_branch_id}.mp3"
-    text_to_audio(story_info["paragraph"], audio_url)
+    text_to_audio(story_info["lang"], story_info["paragraph"], audio_url)
     logging.info(f"Audio generated for new story: story {story_id} and intial branch {initial_branch_id}")
 
     # Create story and initial branch within a transaction
@@ -65,14 +66,15 @@ def create_story():
             run_query_with_session(
                 session,
                 """
-                INSERT INTO stories (story_id, initial_branch_id, title, description, initial_prompt)
-                VALUES (:story_id, :initial_branch_id, :title, :description, :initial_prompt)
+                INSERT INTO stories (story_id, initial_branch_id, title, description, initial_prompt, lang)
+                VALUES (:story_id, :initial_branch_id, :title, :description, :initial_prompt, :lang)
                 """,
                 story_id=story_id,
                 initial_branch_id=initial_branch_id,
                 title=story_info["title"],
                 description=story_info["description"],
                 initial_prompt=story_premise,
+                lang=story_info["lang"],
             )
 
             # Create initial branch
@@ -102,6 +104,7 @@ def create_story():
             "title": story_info["title"],
             "description": story_info["description"],
             "initial_prompt": story_premise,
+            "lang": story_info["lang"],
         }
     )
 
@@ -112,7 +115,7 @@ def get_story(story_id):
     logging.info(f"Fetching story {story_id}")
     story = run_query(
         """
-        SELECT story_id, initial_branch_id, title, description, initial_prompt
+        SELECT story_id, initial_branch_id, title, description, initial_prompt, lang
         FROM stories
         WHERE story_id = :story_id
         """,
@@ -129,6 +132,7 @@ def get_story(story_id):
             "title": story.title,
             "description": story.description,
             "initial_prompt": story.initial_prompt,
+            "lang": story.lang,
         }
     )
 
@@ -160,6 +164,16 @@ def get_branch(story_id, branch_id):
         abort(404, f"Story {story_id} does not exist!")
     if not story_and_branch_exist.branch_exists:
         abort(404, f"Branch {branch_id} does not exist!")
+
+    # Get story language
+    lang = run_query(
+        """
+        SELECT lang
+        FROM stories
+        WHERE story_id = :story_id
+        """,
+        story_id=story_id,
+    ).scalar()
 
     # Check and create children branches
     for sentiment in ["positive", "negative"]:
@@ -220,11 +234,11 @@ def get_branch(story_id, branch_id):
 
         # Generate new content and audio
         logging.info(f"Generating prompt and audio for branch {new_branch_id} and story {story_id}")
-        prompt = get_continue_prompt(story_content, sentiment)
+        prompt = get_continue_prompt(story_content, sentiment, lang)
         new_paragraph = openai_prompt(prompt)
         logging.info(f"Paragraph generated for branch {new_branch_id} and story {story_id}")
         audio_url = f"audios/{story_id}_{new_branch_id}.mp3"
-        text_to_audio(new_paragraph, audio_url)
+        text_to_audio(lang, new_paragraph, audio_url)
         logging.info(f"Audio generated for branch {new_branch_id} and story {story_id}")
 
         # Update child branch with new content and audio
