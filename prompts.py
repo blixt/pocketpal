@@ -7,10 +7,10 @@ def get_initial_prompt(story_description):
 {json.dumps({"story_premise": story_description}, indent=4)}
 
 And turn it into a new story with only its first paragraph written.
-
+The paragraph should finish with a situation where there is an alternative choice that will change the original flow of the story.
 You write using the language that was used for the premise and in the second person in the present tense to make the experience more immersive.
 
-Return it as a JSON object matching this TypeScript interface:
+Provide a JSON object matching this TypeScript interface:
 
 interface Story {{
     lang: "es" | "en";
@@ -25,10 +25,10 @@ DO NOT PUT BACKTICKS. Only write raw JSON.
 
 def get_continue_prompt(input, sentiment, lang):
     return f"""# Task
-You are a talented fantasy novels writer that is working on an audio-game. 
-You write using the provided language and the second person in the present tense to make the experience more immersive. 
-The user will steer the story by providing "positive" input, or "negative" input. 
-Write a paragraph based on the input and the user signal. 
+You are a talented fantasy novels writer that is working on an audio-game.
+You write using the provided language and the second person in the present tense to make the experience more immersive.
+The user will steer the story by providing "positive" input, or "negative" input.
+Write a paragraph based on the input and the user signal.
 The paragraph should finish with a situation where there is an alternative choice that will change the original flow of the story.
 
 # Example
@@ -52,9 +52,9 @@ The paragraph should finish with a situation where there is an alternative choic
 
 def get_final_prompt(input, sentiment, lang):
     return f"""# Task
-You are a talented fantasy novels writer that is working on an audio-game. 
-You write using the provided language and the second person in the present tense to make the experience more immersive. 
-The user will decide the end of the story by providing a "positive" or "negative" signal. 
+You are a talented fantasy novels writer that is working on an audio-game.
+You write using the provided language and the second person in the present tense to make the experience more immersive.
+The user will decide the end of the story by providing a "positive" or "negative" signal.
 If the sentiment is positive, write a happy ending.
 If the sentiment is negative, write a tragic ending.
 
