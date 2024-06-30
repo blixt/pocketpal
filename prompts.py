@@ -6,7 +6,7 @@ def get_initial_prompt(story_description):
 
 {json.dumps({"story_premise": story_description}, indent=4)}
 
-Return it as a JSON object matching this TypeScript interface:
+And turn it into a new story with only its first paragraph written. Return it as a JSON object matching this TypeScript interface:
 
 interface Story {{
     lang: "es" | "en";
@@ -14,6 +14,8 @@ interface Story {{
     description: string;
     paragraph: string;
 }}
+
+DO NOT PUT BACKTICKS. Only write raw JSON.
 """
 
 
