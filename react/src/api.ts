@@ -20,6 +20,8 @@ export interface Branch {
     leaf: boolean
 }
 
+const pendingBranchRequests: Record<string, Promise<Branch>> = {}
+
 async function api<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
     try {
         const url = `${API_BASE_URL}${endpoint}`
@@ -52,7 +54,14 @@ export async function getStory(storyId: string): Promise<Story> {
 }
 
 export async function getBranch(storyId: string, branchId: string): Promise<Branch> {
-    return api(`/story/${storyId}/branches/${branchId}/`)
+    const key = `${storyId}:${branchId}`
+    if (!pendingBranchRequests[key]) {
+        pendingBranchRequests[key] = api(`/story/${storyId}/branches/${branchId}/`)
+        pendingBranchRequests[key].finally(() => {
+            delete pendingBranchRequests[key]
+        })
+    }
+    return pendingBranchRequests[key]
 }
 
 export async function generateBranch(
@@ -60,8 +69,15 @@ export async function generateBranch(
     branchId: string,
     sentiment: "positive" | "negative",
 ): Promise<Branch> {
-    return api(`/story/${storyId}/branches/${branchId}/generate`, {
-        method: "POST",
-        body: JSON.stringify({ sentiment }),
-    })
+    const key = `${storyId}:${branchId}:${sentiment}`
+    if (!pendingBranchRequests[key]) {
+        pendingBranchRequests[key] = api(`/story/${storyId}/branches/${branchId}/generate`, {
+            method: "POST",
+            body: JSON.stringify({ sentiment }),
+        })
+        pendingBranchRequests[key].finally(() => {
+            delete pendingBranchRequests[key]
+        })
+    }
+    return pendingBranchRequests[key]
 }

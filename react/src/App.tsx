@@ -62,7 +62,7 @@ export default function App() {
 
     return (
         <Theme appearance={isDarkMode ? "dark" : "light"}>
-            <Container p="2" minHeight="100vh">
+            <Container p="4" minHeight="100vh">
                 <Flex direction="column" height="100vh">
                     <Box width="100%">
                         <Card>

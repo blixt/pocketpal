@@ -320,8 +320,8 @@ export default function StoryPlayer({ story, autoplay = false, autoContinue = tr
                     )}
                 </IconButton>
             </Flex>
-            <Flex align="center" direction="column">
-                <Heading size={{ initial: "4", sm: "6" }} mb="2">
+            <Flex align={{ initial: "start", sm: "center" }} direction="column">
+                <Heading size={{ initial: "5", sm: "6" }} mb="2">
                     {story.title}
                 </Heading>
                 <Text>{story.description}</Text>
