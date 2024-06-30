@@ -23,6 +23,7 @@ type Action =
     | { type: "SET_SENTIMENT"; sentiment: "positive" | "negative" | null }
     | { type: "DISABLE_BUTTONS" }
     | { type: "AUDIO_ENDED" }
+    | { type: "AUDIO_PAUSED" }
     | { type: "TRANSITION_TO_NEXT_BRANCH" }
     | { type: "START_PLAYING" }
 
@@ -40,7 +41,11 @@ function reducer(state: State, action: Action): State {
         case "DISABLE_BUTTONS":
             return { ...state, isButtonsDisabled: true }
         case "AUDIO_ENDED":
-            return { ...state, hasAudioEnded: true }
+            // Make sure to force isPlaying to be true if audio ends. While it
+            // may seem counter-intuitive, audio ending means it was playing,
+            // and should keep playing once the next audio loads. Otherwise, the
+            // pause event that happens when audio ends might stop the flow.
+            return { ...state, hasAudioEnded: true, isPlaying: true }
         case "TRANSITION_TO_NEXT_BRANCH":
             if (!state.upcomingBranch) {
                 throw new Error("Cannot transition to next branch: upcoming branch is null")
@@ -55,6 +60,11 @@ function reducer(state: State, action: Action): State {
             }
         case "START_PLAYING":
             return { ...state, isPlaying: true }
+        case "AUDIO_PAUSED":
+            // If the audio has ended, then this pause event was probably not
+            // because of a user action, so we ignore it.
+            if (state.hasAudioEnded) return state
+            return { ...state, isPlaying: false }
         default:
             throw new Error("Unexpected action type")
     }
@@ -137,7 +147,7 @@ export default function StoryPlayer({ story, autoplay = false }: StoryProps) {
 
         // If the audio is nearing the end, lock in the user's choice.
         const checkTimeRemaining = () => {
-            if (audio.paused) return
+            if (audio.paused || !audio.duration || state.isButtonsDisabled) return
             const timeRemaining = audio.duration - audio.currentTime
             if (timeRemaining >= 3) {
                 setTimeout(checkTimeRemaining, 100)
@@ -156,14 +166,20 @@ export default function StoryPlayer({ story, autoplay = false }: StoryProps) {
             dispatch({ type: "TRANSITION_TO_NEXT_BRANCH" })
         }
 
+        const handleAudioPause = () => {
+            dispatch({ type: "AUDIO_PAUSED" })
+        }
+
         const timeoutId = setTimeout(checkTimeRemaining, 100)
         audio.addEventListener("ended", handleAudioEnd)
+        audio.addEventListener("pause", handleAudioPause)
 
         return () => {
             clearTimeout(timeoutId)
             audio.removeEventListener("ended", handleAudioEnd)
+            audio.removeEventListener("pause", handleAudioPause)
         }
-    }, [state.sentiment, state.upcomingBranch])
+    }, [state.sentiment, state.upcomingBranch, state.isButtonsDisabled])
 
     const handleSentimentChange = async (sentiment: "positive" | "negative") => {
         if (state.isButtonsDisabled) return

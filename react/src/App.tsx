@@ -11,6 +11,7 @@ export default function App() {
     const [story, setStory] = useState<Story | null>(null)
     const [isLoading, setIsLoading] = useState(false)
     const [error, setError] = useState<string | null>(null)
+    const [autoplay, setAutoplay] = useState(false)
 
     useEffect(() => {
         const path = window.location.pathname
@@ -42,6 +43,7 @@ export default function App() {
         try {
             const newStory = await createStory(prompt)
             setStory(newStory)
+            setAutoplay(true)
             window.history.pushState(null, "", `/story/${newStory.id}`)
         } catch (error) {
             console.error("Error creating story:", error)
@@ -77,7 +79,7 @@ export default function App() {
                                 </AlertDialog.Content>
                             </AlertDialog.Root>
                         ) : story ? (
-                            <StoryPlayer story={story} />
+                            <StoryPlayer story={story} autoplay={autoplay} />
                         ) : (
                             <CreateStory onCreateStory={handleCreateStory} />
                         )}
