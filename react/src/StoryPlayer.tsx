@@ -1,18 +1,19 @@
-import { PlayIcon } from "@radix-ui/react-icons"
-import { Button, Flex, Heading } from "@radix-ui/themes"
+import { MinusIcon, PlayIcon, PlusIcon } from "@radix-ui/react-icons"
+import { Button, Flex, Heading, Text } from "@radix-ui/themes"
 import { useEffect, useReducer, useRef } from "react"
-import { generateBranch, getBranch, type Branch, type Story } from "./api"
+import { getBranch, type Branch, type Story } from "./api"
+import toneSrc from "./audio/tone.mp3"
 
 interface StoryProps {
     autoplay?: boolean
     story: Story
+    autoContinue?: boolean
 }
 
 type State = {
     currentBranch: Branch | null
     upcomingBranch: Branch | null
     sentiment: "positive" | "negative" | null
-    isButtonsDisabled: boolean
     hasAudioEnded: boolean
     isPlaying: boolean
 }
@@ -21,7 +22,6 @@ type Action =
     | { type: "SET_INITIAL_BRANCH"; branch: Branch }
     | { type: "SET_UPCOMING_BRANCH"; branch: Branch }
     | { type: "SET_SENTIMENT"; sentiment: "positive" | "negative" | null }
-    | { type: "DISABLE_BUTTONS" }
     | { type: "AUDIO_ENDED" }
     | { type: "AUDIO_PAUSED" }
     | { type: "TRANSITION_TO_NEXT_BRANCH" }
@@ -38,8 +38,6 @@ function reducer(state: State, action: Action): State {
             return { ...state, upcomingBranch: action.branch }
         case "SET_SENTIMENT":
             return { ...state, sentiment: action.sentiment }
-        case "DISABLE_BUTTONS":
-            return { ...state, isButtonsDisabled: true }
         case "AUDIO_ENDED":
             // Make sure to force isPlaying to be true if audio ends. While it
             // may seem counter-intuitive, audio ending means it was playing,
@@ -55,7 +53,6 @@ function reducer(state: State, action: Action): State {
                 currentBranch: state.upcomingBranch,
                 upcomingBranch: null,
                 sentiment: null,
-                isButtonsDisabled: false,
                 hasAudioEnded: false,
             }
         case "START_PLAYING":
@@ -80,17 +77,17 @@ function withLogging(reducer: (state: State, action: Action) => State) {
     }
 }
 
-export default function StoryPlayer({ story, autoplay = false }: StoryProps) {
+export default function StoryPlayer({ story, autoplay = false, autoContinue = true }: StoryProps) {
     const [state, dispatch] = useReducer(withLogging(reducer), {
         currentBranch: null,
         upcomingBranch: null,
         sentiment: null,
-        isButtonsDisabled: false,
         hasAudioEnded: false,
         isPlaying: autoplay,
     })
 
     const audioRef = useRef<HTMLAudioElement | null>(null)
+    const toneAudioRef = useRef<HTMLAudioElement | null>(null)
 
     const didRunFetchInitialBranch = useRef(false)
     useEffect(() => {
@@ -99,7 +96,7 @@ export default function StoryPlayer({ story, autoplay = false }: StoryProps) {
         const fetchInitialBranch = async () => {
             try {
                 const branch = await getBranch(story.id, story.initial_branch_id)
-                dispatch({ type: "SET_INITIAL_BRANCH", branch: branch })
+                dispatch({ type: "SET_INITIAL_BRANCH", branch })
             } catch (error) {
                 console.error("Error fetching initial branch:", error)
             }
@@ -143,25 +140,28 @@ export default function StoryPlayer({ story, autoplay = false }: StoryProps) {
 
     useEffect(() => {
         const audio = audioRef.current
-        if (!audio) return
+        const toneAudio = toneAudioRef.current
+        if (!audio || !toneAudio) return
 
         // If the audio is nearing the end, lock in the user's choice.
         const checkTimeRemaining = () => {
-            if (audio.paused || !audio.duration || state.isButtonsDisabled) return
+            if (audio.paused || !audio.duration) return
             const timeRemaining = audio.duration - audio.currentTime
-            if (timeRemaining >= 3) {
+            if (timeRemaining >= 2) {
                 setTimeout(checkTimeRemaining, 100)
                 return
             }
 
-            dispatch({ type: "DISABLE_BUTTONS" })
-            if (state.sentiment === null) {
+            if (autoContinue && state.sentiment === null) {
                 handleSentimentChange("positive")
             }
         }
 
         const handleAudioEnd = () => {
             dispatch({ type: "AUDIO_ENDED" })
+            if (!autoContinue) {
+                toneAudio.play().catch(error => console.error("Error playing tone audio:", error))
+            }
             if (!state.upcomingBranch) return
             dispatch({ type: "TRANSITION_TO_NEXT_BRANCH" })
         }
@@ -179,21 +179,32 @@ export default function StoryPlayer({ story, autoplay = false }: StoryProps) {
             audio.removeEventListener("ended", handleAudioEnd)
             audio.removeEventListener("pause", handleAudioPause)
         }
-    }, [state.sentiment, state.upcomingBranch, state.isButtonsDisabled])
+    }, [state.sentiment, state.upcomingBranch, autoContinue])
 
     const handleSentimentChange = async (sentiment: "positive" | "negative") => {
-        if (state.isButtonsDisabled) return
-
         dispatch({ type: "SET_SENTIMENT", sentiment: state.sentiment === sentiment ? null : sentiment })
         if (state.currentBranch) {
             try {
-                const newBranch = await generateBranch(state.currentBranch.story_id, state.currentBranch.id, sentiment)
-                dispatch({ type: "SET_UPCOMING_BRANCH", branch: newBranch })
-                if (state.hasAudioEnded) {
-                    dispatch({ type: "TRANSITION_TO_NEXT_BRANCH" })
+                // Refetch the current branch data
+                const updatedBranch = await getBranch(state.currentBranch.story_id, state.currentBranch.id)
+
+                // Check if the appropriate branch ID is available
+                const nextBranchId =
+                    sentiment === "positive" ? updatedBranch.positive_branch_id : updatedBranch.negative_branch_id
+
+                if (nextBranchId) {
+                    // Fetch the next branch if available
+                    const nextBranch = await getBranch(state.currentBranch.story_id, nextBranchId)
+                    dispatch({ type: "SET_UPCOMING_BRANCH", branch: nextBranch })
+
+                    if (state.hasAudioEnded) {
+                        dispatch({ type: "TRANSITION_TO_NEXT_BRANCH" })
+                    }
+                } else {
+                    console.warn(`No ${sentiment} branch available for the current branch.`)
                 }
             } catch (error) {
-                console.error("Error generating new branch:", error)
+                console.error("Error fetching updated branch data:", error)
             }
         }
     }
@@ -203,12 +214,9 @@ export default function StoryPlayer({ story, autoplay = false }: StoryProps) {
     }
 
     return (
-        <Flex direction="column" align="center">
-            <Heading size="6" mb="4">
-                {story.title}
-            </Heading>
-            {/* biome-ignore lint/a11y/useMediaCaption: Not for now. */}
-            <audio ref={audioRef} style={{ display: "none" }} />
+        <Flex direction="column" gap="4" align="center">
+            <Heading size="6">{story.title}</Heading>
+            <Text>{story.description}</Text>
             <Flex direction="column" gap="4">
                 {state.isPlaying ? (
                     <>
@@ -217,18 +225,18 @@ export default function StoryPlayer({ story, autoplay = false }: StoryProps) {
                             onClick={() => handleSentimentChange("positive")}
                             style={{ width: "200px", height: "200px", fontSize: "100px" }}
                             variant={state.sentiment === "positive" ? "solid" : "outline"}
-                            disabled={state.isButtonsDisabled}
+                            color="green"
                         >
-                            +
+                            <PlusIcon width="100" height="100" />
                         </Button>
                         <Button
                             size="4"
                             onClick={() => handleSentimentChange("negative")}
                             style={{ width: "200px", height: "200px", fontSize: "100px" }}
                             variant={state.sentiment === "negative" ? "solid" : "outline"}
-                            disabled={state.isButtonsDisabled}
+                            color="red"
                         >
-                            -
+                            <MinusIcon width="100" height="100" />
                         </Button>
                     </>
                 ) : (
@@ -242,6 +250,10 @@ export default function StoryPlayer({ story, autoplay = false }: StoryProps) {
                     </Button>
                 )}
             </Flex>
+            {/* biome-ignore lint/a11y/useMediaCaption: Not for now. */}
+            <audio ref={audioRef} style={{ display: "none" }} />
+            {/* biome-ignore lint/a11y/useMediaCaption: Not for now. */}
+            <audio ref={toneAudioRef} src={toneSrc} style={{ display: "none" }} />
         </Flex>
     )
 }

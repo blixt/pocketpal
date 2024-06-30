@@ -1,7 +1,6 @@
 import os
 from typing import Dict, Literal, Tuple
 
-import requests
 from elevenlabs import VoiceSettings
 from elevenlabs.client import ElevenLabs
 from google.cloud import storage
