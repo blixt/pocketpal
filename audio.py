@@ -2,7 +2,7 @@ import os
 from typing import Dict, Literal, Tuple
 
 from elevenlabs import VoiceSettings
-from elevenlabs.client import ElevenLabs
+from elevenlabs.client import AsyncElevenLabs
 from google.cloud import storage
 
 ELEVENLABS_API_KEY = os.getenv("ELEVENLABS_API_KEY")
@@ -20,12 +20,14 @@ def get_full_url(destination_blob_name: str) -> str:
     return f"https://storage.googleapis.com/{BUCKET_NAME}/{destination_blob_name}"
 
 
-def text_to_audio(language: Literal["en", "es"], text: str, destination_blob_name: str):
+async def text_to_audio(
+    language: Literal["en", "es"], text: str, destination_blob_name: str
+):
     """Convert text to audio"""
 
     voice_id, model_id = VOICES[language]
 
-    client = ElevenLabs(
+    client = AsyncElevenLabs(
         api_key=ELEVENLABS_API_KEY,
     )
 
@@ -49,6 +51,9 @@ def text_to_audio(language: Literal["en", "es"], text: str, destination_blob_nam
     blob = bucket.blob(destination_blob_name)
 
     # Upload the MP3 file to a public bucket
-    blob.upload_from_string(b"".join(response), content_type="audio/mpeg")
+    data = b""
+    async for chunk in response:
+        data += chunk
+    blob.upload_from_string(data, content_type="audio/mpeg")
 
     print(f"File uploaded to {destination_blob_name} in bucket {BUCKET_NAME}.")

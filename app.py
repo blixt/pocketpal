@@ -1,3 +1,4 @@
+import asyncio
 from time import time
 import json
 import logging
@@ -40,14 +41,14 @@ def index(story_id=None):
 
 
 @app.route("/v1/story/", methods=["POST"])
-def create_story():
+async def create_story():
     """Create a new story"""
     data = request.json
     story_premise = data.get("initial_prompt")
 
     # Generate content for initial branch
     llm_start = time()
-    json_from_llm = openai_prompt(get_initial_prompt(story_premise))
+    json_from_llm = await openai_prompt(get_initial_prompt(story_premise))
     llm_duration = time() - llm_start
     logging.info(f"LLM generated content for new story in {llm_duration} seconds")
     try:
@@ -70,7 +71,7 @@ def create_story():
     # Generate audio before the transaction
     audio_url = f"audios/{story_id}_{initial_branch_id}.mp3"
     tts_start = time()
-    text_to_audio(story_info["lang"], story_info["paragraph"], audio_url)
+    await text_to_audio(story_info["lang"], story_info["paragraph"], audio_url)
     tts_duration = time() - tts_start
     logging.info(
         f"Audio generated for new story: story {story_id} and intial branch {initial_branch_id} in {tts_duration} seconds"
@@ -157,14 +158,14 @@ def get_story(story_id):
 
 
 @app.route("/v1/story/<story_id>/branches/<branch_id>/")
-def get_branch(story_id, branch_id):
+async def get_branch(story_id, branch_id):
     """
     Get branch details and generate child branches if they don't exist.
 
     - Verify story and branch existence
     - Create child branches if they don't exist
-    - Generate content for new branches
-    - Create audio for new branches
+    - Generate content for new branches in parallel
+    - Create audio for new branches in parallel
     - Return branch details
     """
 
@@ -236,8 +237,7 @@ def get_branch(story_id, branch_id):
         if len(story_content) > MAX_STORY_LENGTH:
             leaf = True
 
-        # Check and create children branches
-        for sentiment in ["positive", "negative"]:
+        async def generate_branch(sentiment):
             logging.info(
                 f"Fetching retrieving {sentiment} node for branch {branch_id} and story {story_id}"
             )
@@ -253,7 +253,7 @@ def get_branch(story_id, branch_id):
             ).fetchone()
 
             if child_branch and child_branch.status != "failed":
-                continue
+                return
 
             # Create new branch or update failed branch.
             # To reach a 0.01% chance of collision, you need approximately 13M items.
@@ -292,14 +292,14 @@ def get_branch(story_id, branch_id):
                 )
 
             llm_start = time()
-            new_paragraph = openai_prompt(prompt)
+            new_paragraph = await openai_prompt(prompt)
             llm_duration = time() - llm_start
             logging.info(
                 f"Paragraph generated for branch {new_branch_id} and story {story_id} in {llm_duration} seconds"
             )
             audio_url = f"audios/{story_id}_{new_branch_id}.mp3"
             tts_start = time()
-            text_to_audio(lang, new_paragraph, audio_url)
+            await text_to_audio(lang, new_paragraph, audio_url)
             tts_duration = time() - tts_start
             logging.info(
                 f"Audio generated for branch {new_branch_id} and story {story_id} in {tts_duration} seconds"
@@ -337,6 +337,9 @@ def get_branch(story_id, branch_id):
             logging.info(
                 f"DB update for branch {new_branch_id} and story {story_id} done"
             )
+
+        # Generate positive and negative branches in parallel
+        await asyncio.gather(generate_branch("positive"), generate_branch("negative"))
 
     # Fetch the updated branch details
     logging.info(f"Fetching branch {branch_id} for story {story_id}")

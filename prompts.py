@@ -6,8 +6,8 @@ def get_initial_prompt(story_description):
 
 {json.dumps({"story_premise": story_description}, indent=4)}
 
-And turn it into a new story with only its first paragraph written.
-The paragraph should finish with a situation where there is an alternative choice that will change the original flow of the story.
+And turn it into a new story with only its first paragraph written, and not too long.
+The paragraph should finish with a situation where there is an alternative choice that will change the original flow of the story. The alternatives should be one that propels the story forward, and one that changes the direction of the story.
 You write using the language that was used for the premise and in the second person in the present tense to make the experience more immersive.
 
 Provide a JSON object matching this TypeScript interface:
