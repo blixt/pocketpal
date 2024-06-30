@@ -238,9 +238,11 @@ def get_branch(story_id, branch_id):
         logging.info(f"Generating prompt and audio for branch {new_branch_id} and story {story_id}")
         if len(story_content) > MAX_STORY_LENGTH:
             prompt = get_final_prompt(story_content, sentiment, lang)
+            story_finish=True
             logging.info(f"Final prompt generated for branch {new_branch_id} and story {story_id}")
         else:
             prompt = get_continue_prompt(story_content, sentiment, lang)
+            story_finish=False
         logging.info(f"Prompt generated for branch {new_branch_id} and story {story_id}")
 
         new_paragraph = openai_prompt(prompt)
@@ -291,9 +293,6 @@ def get_branch(story_id, branch_id):
         branch_id=branch_id,
     ).fetchone()
 
-    # TODO handle end of story in client
-    # return NULL id?
-
     return jsonify(
         {
             "id": branch.branch_id,
@@ -304,5 +303,6 @@ def get_branch(story_id, branch_id):
             "story": branch.paragraph,
             "positive_branch_id": branch.positive_branch_id,
             "negative_branch_id": branch.negative_branch_id,
+            "story_finish": story_finish,
         }
     )
