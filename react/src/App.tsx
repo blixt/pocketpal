@@ -3,6 +3,7 @@ import { AlertDialog, Box, Card, Container, Flex, Spinner, Text, Theme } from "@
 import { useEffect, useState } from "react"
 import CreateStory from "./CreateStory"
 import StoryPlayer from "./StoryPlayer"
+import StoryVisualizer from "./StoryVisualizer"
 import { createStory, getStory, type Story } from "./api"
 import { useIsDarkMode } from "./useIsDarkMode"
 
@@ -12,14 +13,20 @@ export default function App() {
     const [isLoading, setIsLoading] = useState(false)
     const [error, setError] = useState<string | null>(null)
     const [autoplay, setAutoplay] = useState(false)
+    const [isVisualizing, setIsVisualizing] = useState(false)
 
     useEffect(() => {
         const path = window.location.pathname
         const storyIdMatch = path.match(/^\/story\/(.+)$/)
+        const visualizeMatch = path.match(/^\/visualize\/(.+)$/)
 
         if (storyIdMatch) {
             const storyId = storyIdMatch[1]
             loadStory(storyId)
+        } else if (visualizeMatch) {
+            const storyId = visualizeMatch[1]
+            loadStory(storyId)
+            setIsVisualizing(true)
         }
     }, [])
 
@@ -79,7 +86,11 @@ export default function App() {
                                 </AlertDialog.Content>
                             </AlertDialog.Root>
                         ) : story ? (
-                            <StoryPlayer story={story} autoplay={autoplay} />
+                            isVisualizing ? (
+                                <StoryVisualizer story={story} />
+                            ) : (
+                                <StoryPlayer story={story} autoplay={autoplay} />
+                            )
                         ) : (
                             <CreateStory onCreateStory={handleCreateStory} />
                         )}

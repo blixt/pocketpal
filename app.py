@@ -23,6 +23,7 @@ def base62(length):
 # Entrypoint for visitors to the app
 @app.route("/")
 @app.route("/story/<story_id>")
+@app.route("/visualize/<story_id>")
 def index(story_id=None):
     return render_template("index.html")
 
