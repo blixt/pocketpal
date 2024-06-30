@@ -62,7 +62,7 @@ If the sentiment is negative, write a tragic ending.
 # Language
 {lang}
 
-# Input:
+# Input
 {input}
 
 # Sentiment
