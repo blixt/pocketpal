@@ -3,8 +3,10 @@ from langchain_openai import ChatOpenAI
 from langchain.schema import HumanMessage
 
 
+llm = ChatOpenAI(model_name="gpt-4", openai_api_key=os.getenv("OPENAI_API_KEY"))
+
+
 async def openai_prompt(prompt: str) -> str:
-    chat = ChatOpenAI(model_name="gpt-4", openai_api_key=os.getenv("OPENAI_API_KEY"))
     messages = [HumanMessage(content=prompt)]
-    response = await chat.ainvoke(messages)
+    response = await llm.ainvoke(messages)
     return response.content
