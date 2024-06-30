@@ -9,9 +9,13 @@ ELEVENLABS_API_KEY = os.getenv("ELEVENLABS_API_KEY")
 BUCKET_NAME = "pocketpal-bucket"
 
 
-VOICES: Dict[Literal["en", "es"], Tuple[str, str]] = {
+VOICES: Dict[str, Tuple[str, str]] = {
     "en": ("iiidtqDt9FBdT1vfBluA", "eleven_turbo_v2"),
     "es": ("Nh2zY9kknu6z4pZy6FhD", "eleven_multilingual_v2"),
+    "pt": ("WgE8iWzGVoJYLb5V7l2d", "eleven_multilingual_v2"),
+    "se": ("x0u3EW21dbrORJzOq1m9", "eleven_multilingual_v2"),
+    # Good but 3x expensive!
+    # "en": ("BNgbHR0DNeZixGQVzloa", "eleven_turbo_v2"),
 }
 
 
@@ -20,10 +24,11 @@ def get_full_url(destination_blob_name: str) -> str:
     return f"https://storage.googleapis.com/{BUCKET_NAME}/{destination_blob_name}"
 
 
-async def text_to_audio(
-    language: Literal["en", "es"], text: str, destination_blob_name: str
-):
+async def text_to_audio(language: str, text: str, destination_blob_name: str):
     """Convert text to audio"""
+
+    if language not in VOICES:
+        raise ValueError(f"Language {language} not supported")
 
     voice_id, model_id = VOICES[language]
 

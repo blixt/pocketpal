@@ -13,7 +13,7 @@ You write using the language that was used for the premise and in the second per
 Provide a JSON object matching this TypeScript interface:
 
 interface Story {{
-    lang: "es" | "en";
+    lang: "es" | "en" | "pt" | "se";
     title: string;
     description: string;
     paragraph: string;
