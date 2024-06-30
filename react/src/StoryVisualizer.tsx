@@ -1,6 +1,6 @@
 import { Flex } from "@radix-ui/themes"
 import * as d3 from "d3"
-import { useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { getBranch, type Story } from "./api"
 
 interface Node extends d3.SimulationNodeDatum {
@@ -19,42 +19,64 @@ interface StoryVisualizerProps {
     story: Story
 }
 
+type QueueItem = {
+    branchId: string
+    parentId: string | null
+    sentiment: "positive" | "negative" | "initial"
+}
+
 function StoryVisualizer({ story }: StoryVisualizerProps) {
     const svgRef = useRef<SVGSVGElement>(null)
     const audioRef = useRef<HTMLAudioElement>(null)
     const [nodes, setNodes] = useState<Node[]>([])
     const [links, setLinks] = useState<Link[]>([])
     const [currentlyPlaying, setCurrentlyPlaying] = useState<string | null>(null)
+    const [isLoading, setIsLoading] = useState(true)
+
+    const updateGraph = useCallback((newNodes: Node[], newLinks: Link[]) => {
+        setNodes(prevNodes => [...prevNodes, ...newNodes])
+        setLinks(prevLinks => [...prevLinks, ...newLinks])
+    }, [])
 
     useEffect(() => {
-        const fetchBranches = async (
-            branchId: string,
-            parentId: string | null = null,
-            sentiment: "positive" | "negative" | "initial" = "initial",
-        ) => {
-            const branch = await getBranch(story.id, branchId)
-            const newNode: Node = { id: branch.id, audioUrl: branch.audio_url, sentiment }
-            setNodes(prevNodes => [...prevNodes, newNode])
+        const fetchBranches = async () => {
+            setIsLoading(true)
+            const queue: QueueItem[] = [{ branchId: story.initial_branch_id, parentId: null, sentiment: "initial" }]
 
-            if (parentId && sentiment !== "initial") {
-                const newLink: Link = {
-                    source: parentId,
-                    target: branch.id,
-                    sentiment: sentiment,
+            while (queue.length > 0) {
+                const item = queue.shift()
+                if (!item) break
+                const { branchId, parentId, sentiment } = item
+                const branch = await getBranch(story.id, branchId)
+
+                const newNode: Node = { id: branch.id, audioUrl: branch.audio_url, sentiment }
+                const newNodes: Node[] = [newNode]
+                const newLinks: Link[] = []
+
+                if (parentId && sentiment !== "initial") {
+                    const newLink: Link = {
+                        source: parentId,
+                        target: branch.id,
+                        sentiment: sentiment,
+                    }
+                    newLinks.push(newLink)
                 }
-                setLinks(prevLinks => [...prevLinks, newLink])
+
+                if (branch.positive_branch_id) {
+                    queue.push({ branchId: branch.positive_branch_id, parentId: branch.id, sentiment: "positive" })
+                }
+                if (branch.negative_branch_id) {
+                    queue.push({ branchId: branch.negative_branch_id, parentId: branch.id, sentiment: "negative" })
+                }
+
+                updateGraph(newNodes, newLinks)
             }
 
-            if (branch.positive_branch_id) {
-                await fetchBranches(branch.positive_branch_id, branch.id, "positive")
-            }
-            if (branch.negative_branch_id) {
-                await fetchBranches(branch.negative_branch_id, branch.id, "negative")
-            }
+            setIsLoading(false)
         }
 
-        fetchBranches(story.initial_branch_id)
-    }, [story])
+        fetchBranches()
+    }, [story, updateGraph])
 
     useEffect(() => {
         if (!svgRef.current || nodes.length === 0) return
@@ -173,6 +195,7 @@ function StoryVisualizer({ story }: StoryVisualizerProps) {
             <svg ref={svgRef} />
             {/* biome-ignore lint/a11y/useMediaCaption: Not for now. */}
             <audio ref={audioRef} style={{ display: "none" }} />
+            {isLoading && <p>Loading more branches...</p>}
         </Flex>
     )
 }
