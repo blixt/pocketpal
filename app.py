@@ -45,7 +45,12 @@ def create_story():
     story_premise = data.get("initial_prompt")
 
     # Generate content for initial branch
-    story_info = json.loads(openai_prompt(get_initial_prompt(story_premise)))
+    json_from_llm = openai_prompt(get_initial_prompt(story_premise))
+    try:
+        story_info = json.loads(json_from_llm)
+    except:
+        print(f"This JSON failed to parse: {json_from_llm}")
+        raise
     assert story_info["lang"]
     assert story_info["title"]
     assert story_info["description"]
