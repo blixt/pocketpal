@@ -169,7 +169,7 @@ export default function StoryPlayer({ story, autoplay = false, autoContinue = tr
         const audio = audioRef.current
         if (!audio) return
 
-        if (state.currentBranch.audio_url !== audio.src) {
+        if (state.currentBranch.audio_url && state.currentBranch.audio_url !== audio.src) {
             audio.src = state.currentBranch.audio_url
             audio.load()
         }
@@ -195,7 +195,11 @@ export default function StoryPlayer({ story, autoplay = false, autoContinue = tr
 
             try {
                 const branch = await getBranch(currentBranch.story_id, branchId)
-                dispatch({ type: "SET_UPCOMING_BRANCH", branch: branch, fromBranchId: currentBranch.id })
+                dispatch({
+                    type: "SET_UPCOMING_BRANCH",
+                    branch: branch,
+                    fromBranchId: currentBranch.id,
+                })
                 if (state.hasAudioEnded && state.sentiment) {
                     dispatch({ type: "TRANSITION_TO_NEXT_BRANCH", fromBranchId: currentBranch.id })
                 }
@@ -237,7 +241,10 @@ export default function StoryPlayer({ story, autoplay = false, autoContinue = tr
             if (state.sentiment === null) {
                 toneAudioRef.current?.play().catch(error => console.error("Error playing tone audio:", error))
             } else if (state.upcomingBranch && state.sentiment && state.currentBranch) {
-                dispatch({ type: "TRANSITION_TO_NEXT_BRANCH", fromBranchId: state.currentBranch.id })
+                dispatch({
+                    type: "TRANSITION_TO_NEXT_BRANCH",
+                    fromBranchId: state.currentBranch.id,
+                })
             }
         }
 
@@ -290,7 +297,11 @@ export default function StoryPlayer({ story, autoplay = false, autoContinue = tr
 
             if (state.upcomingBranch?.id !== nextBranchId) {
                 const nextBranch = await getBranch(state.currentBranch.story_id, nextBranchId)
-                dispatch({ type: "SET_UPCOMING_BRANCH", branch: nextBranch, fromBranchId: state.currentBranch.id })
+                dispatch({
+                    type: "SET_UPCOMING_BRANCH",
+                    branch: nextBranch,
+                    fromBranchId: state.currentBranch.id,
+                })
             }
 
             if (state.hasAudioEnded) {
@@ -347,7 +358,7 @@ export default function StoryPlayer({ story, autoplay = false, autoContinue = tr
                 <Text>{story.description}</Text>
             </Flex>
             <Flex direction={{ initial: "column", sm: "row" }} gap="4">
-                {state.currentBranch?.leaf ? (
+                {state.currentBranch?.final_branch ? (
                     <Button
                         size="4"
                         onClick={handleReload}

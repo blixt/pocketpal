@@ -40,10 +40,10 @@ export default function App() {
     const handleCreateStory = async (prompt: string) => {
         setIsLoading(true)
         try {
-            const newStory = await createStory(prompt)
-            setStory(newStory)
+            const { story } = await createStory(prompt)
+            setStory(story)
             setAutoplay(true)
-            window.history.pushState(null, "", `/story/${newStory.id}`)
+            window.history.pushState(null, "", `/story/${story.id}`)
         } finally {
             setIsLoading(false)
         }

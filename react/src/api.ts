@@ -6,18 +6,20 @@ export interface Story {
     title: string
     description: string
     initial_prompt: string
+    lang: string
 }
 
 export interface Branch {
     id: string
     story_id: string
-    previous_id: string | null
-    status: "new" | "generating" | "done" | "failed"
-    audio_url: string
-    story: string
-    positive_branch_id: string | null
-    negative_branch_id: string | null
-    leaf: boolean
+    previous_branch_id: string | null
+    status: "new" | "generating-text" | "text-only" | "generating-audio" | "done" | "failed"
+    sentiment: "initial_branch" | "positive" | "negative"
+    audio_url: string | null
+    paragraph: string | null
+    positive_branch_id: string
+    negative_branch_id: string
+    final_branch: boolean
 }
 
 const pendingBranchRequests: Record<string, Promise<Branch>> = {}
@@ -42,7 +44,7 @@ async function api<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
     }
 }
 
-export async function createStory(initialPrompt: string): Promise<Story> {
+export async function createStory(initialPrompt: string): Promise<{ story: Story; initial_branch: Branch }> {
     return api("/stories/", {
         method: "POST",
         body: JSON.stringify({ initial_prompt: initialPrompt }),

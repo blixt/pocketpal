@@ -5,7 +5,7 @@ import { getBranch, type Story } from "./api"
 
 interface Node extends d3.SimulationNodeDatum {
     id: string
-    audioUrl: string
+    audioURL: string | null
     sentiment: "positive" | "negative" | "initial"
 }
 
@@ -49,7 +49,7 @@ function StoryVisualizer({ story }: StoryVisualizerProps) {
                 const { branchId, parentId, sentiment } = item
                 const branch = await getBranch(story.id, branchId)
 
-                const newNode: Node = { id: branch.id, audioUrl: branch.audio_url, sentiment }
+                const newNode: Node = { id: branch.id, audioURL: branch.audio_url, sentiment }
                 const newNodes: Node[] = [newNode]
                 const newLinks: Link[] = []
 
@@ -63,10 +63,18 @@ function StoryVisualizer({ story }: StoryVisualizerProps) {
                 }
 
                 if (branch.positive_branch_id) {
-                    queue.push({ branchId: branch.positive_branch_id, parentId: branch.id, sentiment: "positive" })
+                    queue.push({
+                        branchId: branch.positive_branch_id,
+                        parentId: branch.id,
+                        sentiment: "positive",
+                    })
                 }
                 if (branch.negative_branch_id) {
-                    queue.push({ branchId: branch.negative_branch_id, parentId: branch.id, sentiment: "negative" })
+                    queue.push({
+                        branchId: branch.negative_branch_id,
+                        parentId: branch.id,
+                        sentiment: "negative",
+                    })
                 }
 
                 updateGraph(newNodes, newLinks)
@@ -154,8 +162,8 @@ function StoryVisualizer({ story }: StoryVisualizerProps) {
                 setCurrentlyPlaying(null)
             } else {
                 audioRef.current?.pause()
-                if (audioRef.current) {
-                    audioRef.current.src = d.audioUrl
+                if (audioRef.current && d.audioURL) {
+                    audioRef.current.src = d.audioURL
                     audioRef.current.play()
                 }
                 setCurrentlyPlaying(d.id)
