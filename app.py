@@ -168,7 +168,6 @@ async def get_branch(story_id, branch_id):
     - Create audio for new branches in parallel
     - Return branch details
     """
-
     # Check if story and branch exist
     story_and_branch_exist = run_query(
         """

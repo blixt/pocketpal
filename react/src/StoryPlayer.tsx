@@ -9,7 +9,7 @@ import {
     TrackPreviousIcon,
 } from "@radix-ui/react-icons"
 import { Button, Flex, Heading, IconButton, Text } from "@radix-ui/themes"
-import { useEffect, useReducer, useRef } from "react"
+import { useEffect, useReducer, useRef, useState } from "react"
 import { getBranch, type Branch, type Story } from "./api"
 import toneSrc from "./audio/tone.mp3"
 
@@ -137,8 +137,17 @@ export default function StoryPlayer({ story, autoplay = false, autoContinue = tr
         previousBranches: [],
     })
 
+    const [canPlay, setCanPlay] = useState(false)
+
     const audioRef = useRef<HTMLAudioElement | null>(null)
     const toneAudioRef = useRef<HTMLAudioElement | null>(null)
+
+    // Preload tone.mp3 as soon as possible
+    useEffect(() => {
+        const toneAudio = new Audio(toneSrc)
+        toneAudio.preload = "auto"
+        toneAudioRef.current = toneAudio
+    }, [])
 
     const didRunFetchInitialBranch = useRef(false)
     useEffect(() => {
@@ -162,6 +171,7 @@ export default function StoryPlayer({ story, autoplay = false, autoContinue = tr
 
         if (state.currentBranch.audio_url !== audio.src) {
             audio.src = state.currentBranch.audio_url
+            audio.load()
         }
 
         audio.playbackRate = state.playbackRate
@@ -199,8 +209,7 @@ export default function StoryPlayer({ story, autoplay = false, autoContinue = tr
 
     useEffect(() => {
         const audio = audioRef.current
-        const toneAudio = toneAudioRef.current
-        if (!audio || !toneAudio) return
+        if (!audio) return
 
         const checkTimeRemaining = () => {
             if (audio.paused || !audio.duration) return
@@ -226,8 +235,7 @@ export default function StoryPlayer({ story, autoplay = false, autoContinue = tr
         const handleAudioEnd = () => {
             dispatch({ type: "AUDIO_ENDED" })
             if (state.sentiment === null) {
-                console.log("Playing tone ✨")
-                toneAudio.play().catch(error => console.error("Error playing tone audio:", error))
+                toneAudioRef.current?.play().catch(error => console.error("Error playing tone audio:", error))
             } else if (state.upcomingBranch && state.sentiment && state.currentBranch) {
                 dispatch({ type: "TRANSITION_TO_NEXT_BRANCH", fromBranchId: state.currentBranch.id })
             }
@@ -241,16 +249,28 @@ export default function StoryPlayer({ story, autoplay = false, autoContinue = tr
             dispatch({ type: "AUDIO_PLAYED" })
         }
 
+        const handleCanPlay = () => {
+            setCanPlay(true)
+        }
+
+        const handleWaiting = () => {
+            setCanPlay(false)
+        }
+
         const timeoutId = setTimeout(checkTimeRemaining, 100)
         audio.addEventListener("ended", handleAudioEnd)
         audio.addEventListener("pause", handleAudioPause)
         audio.addEventListener("play", handleAudioPlay)
+        audio.addEventListener("canplay", handleCanPlay)
+        audio.addEventListener("waiting", handleWaiting)
 
         return () => {
             clearTimeout(timeoutId)
             audio.removeEventListener("ended", handleAudioEnd)
             audio.removeEventListener("pause", handleAudioPause)
             audio.removeEventListener("play", handleAudioPlay)
+            audio.removeEventListener("canplay", handleCanPlay)
+            audio.removeEventListener("waiting", handleWaiting)
         }
     }, [state.sentiment, state.upcomingBranch, autoContinue, state.currentBranch])
 
@@ -309,7 +329,7 @@ export default function StoryPlayer({ story, autoplay = false, autoContinue = tr
                 >
                     <TrackPreviousIcon width="24" height="24" />
                 </IconButton>
-                <IconButton size="4" variant="classic" radius="full" onClick={handlePlayPauseClick}>
+                <IconButton size="4" variant="classic" radius="full" onClick={handlePlayPauseClick} loading={!canPlay}>
                     {state.isPlaying ? <PauseIcon width="24" height="24" /> : <PlayIcon width="24" height="24" />}
                 </IconButton>
                 <IconButton size="4" variant="classic" radius="full" onClick={handlePlaybackSpeedClick}>
@@ -364,8 +384,6 @@ export default function StoryPlayer({ story, autoplay = false, autoContinue = tr
             </Flex>
             {/* biome-ignore lint/a11y/useMediaCaption: Not for now. */}
             <audio ref={audioRef} style={{ display: "none" }} />
-            {/* biome-ignore lint/a11y/useMediaCaption: Not for now. */}
-            <audio ref={toneAudioRef} src={toneSrc} style={{ display: "none" }} />
         </Flex>
     )
 }

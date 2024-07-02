@@ -1,9 +1,11 @@
-import os
-from typing import Dict, Literal, Tuple
-
+from datetime import datetime, timedelta
+import aiohttp
 from elevenlabs import VoiceSettings
 from elevenlabs.client import AsyncElevenLabs
 from google.cloud import storage
+import os
+from typing import Dict, Tuple
+
 
 ELEVENLABS_API_KEY = os.getenv("ELEVENLABS_API_KEY")
 BUCKET_NAME = "pocketpal-bucket"
@@ -52,13 +54,25 @@ async def text_to_audio(language: str, text: str, destination_blob_name: str):
 
     # Save in storage
     client = storage.Client(project="pocketpal-427909")
-    bucket = client.get_bucket(BUCKET_NAME)
+    bucket = client.bucket(BUCKET_NAME)
     blob = bucket.blob(destination_blob_name)
 
-    # Upload the MP3 file to a public bucket
-    data = b""
-    async for chunk in response:
-        data += chunk
-    blob.upload_from_string(data, content_type="audio/mpeg")
+    # Generate a signed URL for uploading
+    expiration_time = datetime.utcnow() + timedelta(minutes=10)
+    signed_url = blob.generate_signed_url(
+        expiration=expiration_time,
+        method="PUT",
+        content_type="audio/mpeg",
+    )
+
+    # TODO: It would be nice if we could multicast this to anyone that wants to listen to the audio before it's complete.
+    headers = {"Content-Type": "audio/mpeg"}
+    async with aiohttp.ClientSession() as session:
+        async with session.put(signed_url, data=response, headers=headers) as resp:
+            if resp.status != 200:
+                print(f"Error: {await resp.text()}")
+                raise Exception(
+                    f"Failed to upload file to {destination_blob_name} in bucket {BUCKET_NAME}. Status code: {resp.status}"
+                )
 
     print(f"File uploaded to {destination_blob_name} in bucket {BUCKET_NAME}.")
