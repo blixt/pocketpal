@@ -30,14 +30,15 @@ def get_initial_prompt(story_description):
 And turn it into a new story with only its first paragraph written, and not too long.
 The paragraph should finish with a situation where there is an alternative choice that will change the original flow of the story. The alternatives should be one that propels the story forward, and one that changes the direction of the story.
 You write using the language that was used for the premise and in the second person in the present tense to make the experience more immersive.
+The title for the story should be unique and intriguing, fit for the cover of a book, based on the premise and beginning of the story.
 
 Provide a JSON object matching this TypeScript interface:
 
 interface Story {{
     lang: "es" | "en" | "pt" | "se";
-    title: string;
-    description: string;
     paragraph: string;
+    description: string;
+    title: string;
 }}
 
 DO NOT PUT BACKTICKS. Only write raw JSON.
