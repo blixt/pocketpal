@@ -40,7 +40,7 @@ def index(story_id=None):
     return render_template("index.html")
 
 
-@app.route("/v1/story/", methods=["POST"])
+@app.route("/v1/stories/", methods=["POST"])
 async def create_story():
     """Create a new story"""
     data = request.json
@@ -129,7 +129,7 @@ async def create_story():
     )
 
 
-@app.route("/v1/story/<story_id>/")
+@app.route("/v1/stories/<story_id>/")
 def get_story(story_id):
     """Get story details"""
     logging.info(f"Fetching story {story_id}")
@@ -157,7 +157,7 @@ def get_story(story_id):
     )
 
 
-@app.route("/v1/story/<story_id>/branches/<branch_id>/")
+@app.route("/v1/stories/<story_id>/branches/<branch_id>/")
 async def get_branch(story_id, branch_id):
     """
     Get branch details and generate child branches if they don't exist.

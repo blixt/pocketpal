@@ -43,20 +43,20 @@ async function api<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
 }
 
 export async function createStory(initialPrompt: string): Promise<Story> {
-    return api("/story/", {
+    return api("/stories/", {
         method: "POST",
         body: JSON.stringify({ initial_prompt: initialPrompt }),
     })
 }
 
 export async function getStory(storyId: string): Promise<Story> {
-    return api(`/story/${storyId}/`)
+    return api(`/stories/${storyId}/`)
 }
 
 export async function getBranch(storyId: string, branchId: string): Promise<Branch> {
     const key = `${storyId}:${branchId}`
     if (!pendingBranchRequests[key]) {
-        pendingBranchRequests[key] = api(`/story/${storyId}/branches/${branchId}/`)
+        pendingBranchRequests[key] = api(`/stories/${storyId}/branches/${branchId}/`)
         pendingBranchRequests[key].finally(() => {
             delete pendingBranchRequests[key]
         })
@@ -71,7 +71,7 @@ export async function generateBranch(
 ): Promise<Branch> {
     const key = `${storyId}:${branchId}:${sentiment}`
     if (!pendingBranchRequests[key]) {
-        pendingBranchRequests[key] = api(`/story/${storyId}/branches/${branchId}/generate`, {
+        pendingBranchRequests[key] = api(`/stories/${storyId}/branches/${branchId}/generate`, {
             method: "POST",
             body: JSON.stringify({ sentiment }),
         })
