@@ -31,15 +31,15 @@ type State = {
 
 type Action =
     | { type: "SET_INITIAL_BRANCH"; branch: Branch }
-    | { type: "SET_UPCOMING_BRANCH"; branch: Branch; fromBranchId: string }
+    | { type: "SET_UPCOMING_BRANCH"; fromBranchId: string; branch: Branch }
+    | { type: "TRANSITION_TO_NEXT_BRANCH"; fromBranchId: string }
     | { type: "SET_SENTIMENT"; sentiment: "positive" | "negative" | null }
+    | { type: "GO_BACK" }
     | { type: "AUDIO_ENDED" }
     | { type: "AUDIO_PAUSED" }
     | { type: "AUDIO_PLAYED" }
-    | { type: "TRANSITION_TO_NEXT_BRANCH"; fromBranchId: string }
     | { type: "TOGGLE_PLAYING" }
     | { type: "TOGGLE_PLAYBACK_SPEED" }
-    | { type: "GO_BACK" }
 
 function reducer(state: State, action: Action): State {
     switch (action.type) {
@@ -195,11 +195,7 @@ export default function StoryPlayer({ story, autoplay = false, autoContinue = tr
 
             try {
                 const branch = await getBranch(currentBranch.story_id, branchId)
-                dispatch({
-                    type: "SET_UPCOMING_BRANCH",
-                    branch: branch,
-                    fromBranchId: currentBranch.id,
-                })
+                dispatch({ type: "SET_UPCOMING_BRANCH", fromBranchId: currentBranch.id, branch })
                 if (state.hasAudioEnded && state.sentiment) {
                     dispatch({ type: "TRANSITION_TO_NEXT_BRANCH", fromBranchId: currentBranch.id })
                 }
@@ -241,10 +237,7 @@ export default function StoryPlayer({ story, autoplay = false, autoContinue = tr
             if (state.sentiment === null) {
                 toneAudioRef.current?.play().catch(error => console.error("Error playing tone audio:", error))
             } else if (state.upcomingBranch && state.sentiment && state.currentBranch) {
-                dispatch({
-                    type: "TRANSITION_TO_NEXT_BRANCH",
-                    fromBranchId: state.currentBranch.id,
-                })
+                dispatch({ type: "TRANSITION_TO_NEXT_BRANCH", fromBranchId: state.currentBranch.id })
             }
         }
 
@@ -296,12 +289,8 @@ export default function StoryPlayer({ story, autoplay = false, autoContinue = tr
             }
 
             if (state.upcomingBranch?.id !== nextBranchId) {
-                const nextBranch = await getBranch(state.currentBranch.story_id, nextBranchId)
-                dispatch({
-                    type: "SET_UPCOMING_BRANCH",
-                    branch: nextBranch,
-                    fromBranchId: state.currentBranch.id,
-                })
+                const branch = await getBranch(state.currentBranch.story_id, nextBranchId)
+                dispatch({ type: "SET_UPCOMING_BRANCH", fromBranchId: state.currentBranch.id, branch })
             }
 
             if (state.hasAudioEnded) {

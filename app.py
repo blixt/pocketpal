@@ -209,10 +209,13 @@ async def get_branch(story_id, branch_id):
     initial_status = branch.status
     is_final_branch = branch.final_branch
     language = branch.lang
+    sentiment = branch.sentiment
 
     # If the branch status is "new", generate its content first
     if initial_status == "new":
-        await generate_branch_content(story_id, branch_id, language, is_final_branch)
+        await generate_branch_content(
+            story_id, branch_id, language, sentiment, is_final_branch
+        )
 
     if not is_final_branch:
         logging.info(
@@ -328,7 +331,9 @@ async def generate_branch(
             final_branch=is_final_branch,
         )
 
-    await generate_branch_content(story_id, new_branch_id, language, is_final_branch)
+    await generate_branch_content(
+        story_id, new_branch_id, language, sentiment, is_final_branch
+    )
 
     # Update the requested branch with reference to the child branch
     update_query = "UPDATE branches SET "
@@ -346,7 +351,9 @@ async def generate_branch(
     logging.info(f"DB update completed: story_id={story_id}, branch_id={new_branch_id}")
 
 
-async def generate_branch_content(story_id, branch_id, language, is_final_branch):
+async def generate_branch_content(
+    story_id, branch_id, language, sentiment, is_final_branch
+):
     with Session() as session:
         try:
             # Update status from "new" to "generating-text" in a transaction
@@ -390,24 +397,24 @@ async def generate_branch_content(story_id, branch_id, language, is_final_branch
     ).scalar()
 
     new_paragraph = await generate_text_content(
-        story_id, branch_id, story_content, language, is_final_branch
+        story_id, branch_id, story_content, language, sentiment, is_final_branch
     )
     await generate_audio_content(story_id, branch_id, language, new_paragraph)
 
 
 async def generate_text_content(
-    story_id, branch_id, story_content, language, is_final_branch
+    story_id, branch_id, story_content, language, sentiment, is_final_branch
 ):
     logging.info(
-        f"Generating text content for branch: story_id={story_id}, branch_id={branch_id}"
+        f"Generating text content for branch: story_id={story_id}, branch_id={branch_id}, sentiment={sentiment}"
     )
     if is_final_branch:
-        prompt = get_final_prompt(story_content, "positive", language)
+        prompt = get_final_prompt(story_content, language, sentiment)
         logging.debug(
             f"Final prompt generated: story_id={story_id}, branch_id={branch_id}"
         )
     else:
-        prompt = get_continue_prompt(story_content, "positive", language)
+        prompt = get_continue_prompt(story_content, language, sentiment)
         logging.debug(
             f"Continue prompt generated: story_id={story_id}, branch_id={branch_id}"
         )

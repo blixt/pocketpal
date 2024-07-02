@@ -45,7 +45,7 @@ DO NOT PUT BACKTICKS. Only write raw JSON.
 """
 
 
-def get_continue_prompt(input, sentiment, lang):
+def get_continue_prompt(story, language, sentiment):
     return f"""# Task
 You are a talented fantasy novels writer that is working on an audio-game.
 You write using the provided language and the second person in the present tense to make the experience more immersive.
@@ -60,10 +60,10 @@ The paragraph should finish with a situation where there is an alternative choic
 [Negative output] You decide to continue walking, it may be dangerous to enter the house
 
 # Language
-{lang}
+{language}
 
 # Input:
-{input}
+{story}
 
 # Sentiment
 {sentiment}
@@ -72,7 +72,7 @@ The paragraph should finish with a situation where there is an alternative choic
 """
 
 
-def get_final_prompt(input, sentiment, lang):
+def get_final_prompt(story, language, sentiment):
     return f"""# Task
 You are a talented fantasy novels writer that is working on an audio-game.
 You write using the provided language and the second person in the present tense to make the experience more immersive.
@@ -87,10 +87,10 @@ If the sentiment is negative, write a tragic ending.
 [Negative output] The treasure contains a bomb and you all die
 
 # Language
-{lang}
+{language}
 
 # Input
-{input}
+{story}
 
 # Sentiment
 {sentiment}
