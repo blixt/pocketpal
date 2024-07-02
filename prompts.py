@@ -52,12 +52,13 @@ You write using the provided language and the second person in the present tense
 The user will steer the story by providing "positive" input, or "negative" input.
 Write a paragraph based on the input and the user signal.
 The paragraph should finish with a situation where there is an alternative choice that will change the original flow of the story.
+If the main character dies return "death": true.
 
 # Example
 [Language] en
 [Input] You are very tired when you notice a small house in the little of the mountain.
-[Positive output] You decide to visit the house, there is a friendly old man that offers you to stay
-[Negative output] You decide to continue walking, it may be dangerous to enter the house
+[Positive output] {"output": "You decide to visit the house, there is a friendly old man that offers you to stay", "death": false}
+[Negative output] {"output": "You decide to continue walking, but you die of exhaustion", "death": true}
 
 # Language
 {language}
