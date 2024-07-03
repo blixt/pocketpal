@@ -1,14 +1,20 @@
 import os
 
 from google.cloud.sql.connector import create_async_connector
+from sqlalchemy import CursorResult
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.sql import text
 
 # Database configuration
-DB_PASS = os.environ.get("DB_PASS")
 DB_USER = os.environ.get("DB_USER")
+DB_PASS = os.environ.get("DB_PASS")
 DB_NAME = os.environ.get("DB_NAME")
 INSTANCE_CONNECTION_NAME = os.environ.get("INSTANCE_CONNECTION_NAME")
+
+assert DB_USER is not None
+assert DB_PASS is not None
+assert DB_NAME is not None
+assert INSTANCE_CONNECTION_NAME is not None
 
 connector = None
 
@@ -34,8 +40,10 @@ AsyncSessionFactory = async_sessionmaker(
 
 
 # Query execution functions
-async def query_with_session(session: AsyncSession, sql: str, **kwargs):
-    return await session.execute(text(sql), kwargs)
+async def query_with_session(session: AsyncSession, sql: str, **kwargs) -> CursorResult:
+    result = await session.execute(text(sql), kwargs)
+    assert isinstance(result, CursorResult)
+    return result
 
 
 async def query(sql: str, **kwargs):

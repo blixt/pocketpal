@@ -1,14 +1,11 @@
 from dotenv import load_dotenv
-from quart import logging
-
-logging.create_logger
 
 load_dotenv(override=True)
 
 
-from app import app
-import os
+import os  # noqa: E402
 
+from app import app  # noqa: E402
 
 if __name__ == "__main__":
     import sys

@@ -6,6 +6,7 @@ import aiohttp
 from elevenlabs import VoiceSettings
 from elevenlabs.client import AsyncElevenLabs
 from google.auth import default
+from google.auth.credentials import Credentials
 from google.auth.transport.requests import Request
 
 ELEVENLABS_API_KEY = os.getenv("ELEVENLABS_API_KEY")
@@ -51,6 +52,7 @@ async def text_to_audio(language: str, text: str, destination_blob_name: str):
     )
 
     credentials, _ = default()
+    assert isinstance(credentials, Credentials)
     credentials.refresh(Request())
 
     async with aiohttp.ClientSession() as session:
