@@ -17,8 +17,4 @@ RUN pip install -r requirements.txt
 COPY . /app
 
 # Run app.py when the container launches
-ENTRYPOINT ["python", "-m", "quart", "run", "--host=0.0.0.0", "--port=8080"]
-
-# CMD exec gunicorn --bind :$PORT --workers 4 --threads 1 --timeout 0 app:app
-# CMD exec gunicorn app:app
-# ENTRYPOINT ["gunicorn", "app:app", "-c", "gunicorn.conf.py"]
+ENTRYPOINT ["hypercorn", "app:app", "--config", "hypercorn.toml"]
