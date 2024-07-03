@@ -371,7 +371,10 @@ async def generate_branch_content(
                 branch_id=branch_id,
             )
             # Make sure there is exactly one row in the result.
-            result.one()
+            if result.rowcount != 1:
+                raise ValueError(
+                    f"Could not lock branch {branch_id} for generating text"
+                )
             await session.commit()
         except Exception as e:
             await session.rollback()
