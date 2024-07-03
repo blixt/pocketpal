@@ -4,22 +4,21 @@ from time import time
 
 from quart import Quart, abort, jsonify, render_template, request
 
-from audio import get_full_url, text_to_audio
-from db import (
+from pocketpal.audio import get_full_url, text_to_audio
+from pocketpal.db import (
     AsyncSessionFactory,
     query,
     query_one,
     query_scalar,
     query_with_session,
 )
-from llm import openai_prompt
-from prompts import get_continue_prompt, get_final_prompt, get_initial_prompt
-from utils import base62
-
-app = Quart(__name__)
-
+from pocketpal.llm import openai_prompt
+from pocketpal.prompts import get_continue_prompt, get_final_prompt, get_initial_prompt
+from pocketpal.utils import base62
 
 MAX_STORY_LENGTH = 10000  # Approximately 10 branches deep.
+
+app = Quart(__name__)
 
 
 # Entrypoint for visitors to the app

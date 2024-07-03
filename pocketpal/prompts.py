@@ -1,6 +1,5 @@
 import json
 
-
 # TODO: Refactor these prompts into this format:
 # 1. System prompt with solid instructions
 # 2. Tool calls for gathering structured data from the LLM (even if it's just one string).

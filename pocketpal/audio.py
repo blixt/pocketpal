@@ -1,11 +1,11 @@
+import os
 from datetime import datetime, timedelta
+from typing import Dict, Tuple
+
 import aiohttp
 from elevenlabs import VoiceSettings
 from elevenlabs.client import AsyncElevenLabs
 from google.cloud import storage
-import os
-from typing import Dict, Tuple
-
 
 ELEVENLABS_API_KEY = os.getenv("ELEVENLABS_API_KEY")
 BUCKET_NAME = "pocketpal-bucket"

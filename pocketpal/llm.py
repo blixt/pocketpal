@@ -1,9 +1,9 @@
 import os
-from langchain_openai import ChatOpenAI
+
 from langchain.schema import HumanMessage
+from langchain_openai import ChatOpenAI
 
-
-llm = ChatOpenAI(model_name="gpt-4", openai_api_key=os.getenv("OPENAI_API_KEY"))
+llm = ChatOpenAI(name="gpt-4o", api_key=os.getenv("OPENAI_API_KEY"))
 
 
 async def openai_prompt(prompt: str) -> str:
