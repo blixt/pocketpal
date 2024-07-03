@@ -1,60 +1,52 @@
 import asyncio
-from time import time
 import json
-import logging
-import random
-import string
+from time import time
 
-from flask import Flask, abort, jsonify, render_template, request
-from flask_bootstrap import Bootstrap
+from quart import Quart, abort, jsonify, render_template, request
 
 from audio import get_full_url, text_to_audio
-from db import Session, run_query, run_query_with_session
+from db import (
+    AsyncSessionFactory,
+    query,
+    query_one,
+    query_scalar,
+    query_with_session,
+)
 from llm import openai_prompt
 from prompts import get_continue_prompt, get_final_prompt, get_initial_prompt
+from utils import base62
 
-app = Flask(__name__)
-Bootstrap(app)
-
-MAX_STORY_LENGTH = 10000  # aprox 10 branches
-logging.basicConfig(
-    format="%(asctime)s - %(levelname)s - %(message)s",
-    datefmt="%Y-%m-%d %H:%M:%S",
-    level=logging.INFO,
-)
+app = Quart(__name__)
 
 
-def base62(length):
-    """
-    Generate a random base62 string of the specified length.
-    """
-    base62_chars = string.ascii_letters + string.digits
-    return "".join(random.choice(base62_chars) for _ in range(length))
+MAX_STORY_LENGTH = 10000  # Approximately 10 branches deep.
 
 
 # Entrypoint for visitors to the app
 @app.route("/")
 @app.route("/story/<story_id>")
 @app.route("/visualize/<story_id>")
-def index(story_id=None):
-    return render_template("index.html")
+async def index(story_id=None):
+    return await render_template("index.html")
 
 
 @app.route("/v1/stories/", methods=["POST"])
 async def create_story():
     """Create a new story"""
-    data = request.json
+    data = await request.get_json()
     story_premise = data.get("initial_prompt")
 
     # Generate content for initial branch
     llm_start = time()
     json_from_llm = await openai_prompt(get_initial_prompt(story_premise))
     llm_duration = time() - llm_start
-    logging.info(f"LLM generated content for new story in {llm_duration:.2f} seconds")
+    app.logger.info(
+        f"LLM generated content for new story in {llm_duration:.2f} seconds"
+    )
     try:
         story_info = json.loads(json_from_llm)
     except json.JSONDecodeError:
-        logging.error(f"Failed to parse JSON: {json_from_llm}")
+        app.logger.error(f"Failed to parse JSON: {json_from_llm}")
         raise
     assert story_info["lang"]
     assert story_info["title"]
@@ -66,7 +58,7 @@ async def create_story():
     initial_branch_id = base62(10)
     positive_branch_id = base62(10)
     negative_branch_id = base62(10)
-    logging.info(
+    app.logger.info(
         f"Creating new story: story_id={story_id}, initial_branch_id={initial_branch_id}"
     )
 
@@ -75,15 +67,15 @@ async def create_story():
     tts_start = time()
     await text_to_audio(story_info["lang"], story_info["paragraph"], audio_url)
     tts_duration = time() - tts_start
-    logging.info(
+    app.logger.info(
         f"Audio generated for story_id={story_id}, initial_branch_id={initial_branch_id} in {tts_duration:.2f} seconds"
     )
 
     # Create story and branches within a single transaction
-    with Session() as session:
+    async with AsyncSessionFactory() as session:
         try:
             # Create story and all branches in a single query
-            run_query_with_session(
+            await query_with_session(
                 session,
                 """
                 WITH story_insert AS (
@@ -116,12 +108,12 @@ async def create_story():
                 negative_branch_id=negative_branch_id,
             )
 
-            session.commit()
+            await session.commit()
         except Exception as e:
-            session.rollback()
-            logging.error(f"Failed to insert story and branches: {e}")
+            await session.rollback()
+            app.logger.error(f"Failed to insert story and branches: {e}")
             raise
-    logging.info(
+    app.logger.info(
         f"DB insertions completed for story_id={story_id}, initial_branch_id={initial_branch_id}"
     )
 
@@ -154,20 +146,20 @@ async def create_story():
 
 
 @app.route("/v1/stories/<story_id>/")
-def get_story(story_id):
+async def get_story(story_id):
     """Get story details"""
-    logging.info(f"Fetching story: story_id={story_id}")
-    story = run_query(
+    app.logger.info(f"Fetching story: story_id={story_id}")
+    story = await query_one(
         """
         SELECT story_id, initial_branch_id, title, description, initial_prompt, lang
         FROM stories
         WHERE story_id = :story_id
         """,
         story_id=story_id,
-    ).fetchone()
+    )
 
     if not story:
-        logging.warning(f"Story not found: story_id={story_id}")
+        app.logger.warning(f"Story not found: story_id={story_id}")
         abort(404, f"Story {story_id} does not exist!")
 
     return jsonify(
@@ -188,7 +180,7 @@ async def get_branch(story_id, branch_id):
     Get branch details and generate content on demand if necessary.
     """
     # Get the branch information
-    branch = run_query(
+    branch = await query_one(
         """
         SELECT *, s.lang
         FROM branches b
@@ -197,13 +189,17 @@ async def get_branch(story_id, branch_id):
         """,
         story_id=story_id,
         branch_id=branch_id,
-    ).fetchone()
+    )
 
     if not branch:
-        logging.warning(f"Branch not found: story_id={story_id}, branch_id={branch_id}")
+        app.logger.warning(
+            f"Branch not found: story_id={story_id}, branch_id={branch_id}"
+        )
         abort(404, f"Branch {branch_id} does not exist!")
     if branch.story_id != story_id:
-        logging.warning(f"Story mismatch: story_id={story_id}, branch_id={branch_id}")
+        app.logger.warning(
+            f"Story mismatch: story_id={story_id}, branch_id={branch_id}"
+        )
         abort(404, f"Story {story_id} does not exist!")
 
     initial_status = branch.status
@@ -218,12 +214,12 @@ async def get_branch(story_id, branch_id):
         )
 
     if not is_final_branch:
-        logging.info(
+        app.logger.info(
             f"Computing children for branch: story_id={story_id}, branch_id={branch_id}"
         )
 
         # Get story content
-        story_content = run_query(
+        story_content = await query_scalar(
             """
             WITH RECURSIVE branch_history AS (
                 SELECT branch_id, previous_branch_id, paragraph, 1 AS depth
@@ -241,10 +237,15 @@ async def get_branch(story_id, branch_id):
             WHERE paragraph IS NOT NULL;
             """,
             branch_id=branch_id,
-        ).scalar()
+        )
+
+        if not story_content:
+            raise ValueError(
+                f"Story content not found: story_id={story_id}, branch_id={branch_id}"
+            )
 
         # Story is long enough to become final
-        logging.info(
+        app.logger.info(
             f"Story content length: story_id={story_id}, branch_id={branch_id}, length={len(story_content):,} characters"
         )
         creating_final_branch = len(story_content) > MAX_STORY_LENGTH
@@ -260,19 +261,21 @@ async def get_branch(story_id, branch_id):
         )
 
         # Fetch the updated branch details
-        logging.debug(
+        app.logger.debug(
             f"Fetching updated branch: story_id={story_id}, branch_id={branch_id}"
         )
 
     if initial_status == "new" or not is_final_branch:
-        branch = run_query(
+        branch = await query_one(
             """
             SELECT *
             FROM branches
             WHERE branch_id = :branch_id
             """,
             branch_id=branch_id,
-        ).fetchone()
+        )
+        if not branch:
+            raise ValueError(f"Branch not found: branch_id={branch_id}")
 
     return jsonify(
         {
@@ -293,10 +296,10 @@ async def get_branch(story_id, branch_id):
 async def generate_branch(
     story_id, previous_branch_id, language, sentiment, is_final_branch
 ):
-    logging.info(
+    app.logger.info(
         f"Generating branch: story_id={story_id}, previous_branch_id={previous_branch_id}, sentiment={sentiment}"
     )
-    child_branch = run_query(
+    child_branch = await query_one(
         """
         SELECT branch_id, status
         FROM branches 
@@ -305,7 +308,7 @@ async def generate_branch(
         """,
         previous_branch_id=previous_branch_id,
         sentiment=sentiment,
-    ).fetchone()
+    )
 
     if child_branch and child_branch.status != "failed":
         return
@@ -313,12 +316,12 @@ async def generate_branch(
     # Create new branch or update failed branch.
     # To reach a 0.01% chance of collision, you need approximately 13M items.
     new_branch_id = child_branch.branch_id if child_branch else base62(10)
-    logging.info(
+    app.logger.info(
         f"{'Updating' if child_branch else 'Creating'} branch: story_id={story_id}, branch_id={new_branch_id}"
     )
 
     if not child_branch:
-        run_query(
+        await query(
             """
             INSERT INTO branches 
             (branch_id, story_id, previous_branch_id, status, sentiment, audio_url, paragraph, final_branch)
@@ -343,21 +346,23 @@ async def generate_branch(
         update_query += "negative_branch_id = :new_branch_id"
     update_query += " WHERE branch_id = :previous_branch_id"
 
-    run_query(
+    await query(
         update_query,
         new_branch_id=new_branch_id,
         previous_branch_id=previous_branch_id,
     )
-    logging.info(f"DB update completed: story_id={story_id}, branch_id={new_branch_id}")
+    app.logger.info(
+        f"DB update completed: story_id={story_id}, branch_id={new_branch_id}"
+    )
 
 
 async def generate_branch_content(
     story_id, branch_id, language, sentiment, is_final_branch
 ):
-    with Session() as session:
+    async with AsyncSessionFactory() as session:
         try:
             # Update status from "new" to "generating-text" in a transaction
-            result = run_query(
+            result = await query(
                 """
                 UPDATE branches SET
                     status = 'generating-text'
@@ -365,18 +370,18 @@ async def generate_branch_content(
                 """,
                 branch_id=branch_id,
             )
-            if result.rowcount == 0:
-                raise Exception(f"Branch {branch_id} was already being processed")
-            session.commit()
+            # Make sure there is exactly one row in the result.
+            result.one()
+            await session.commit()
         except Exception as e:
-            session.rollback()
-            logging.error(
+            await session.rollback()
+            app.logger.error(
                 f"Failed to update branch status: story_id={story_id}, branch_id={branch_id}, error={str(e)}"
             )
             raise
 
     # Get story content
-    story_content = run_query(
+    story_content = await query_scalar(
         """
         WITH RECURSIVE branch_history AS (
             SELECT branch_id, previous_branch_id, paragraph, 1 AS depth
@@ -394,7 +399,7 @@ async def generate_branch_content(
         WHERE paragraph IS NOT NULL;
         """,
         branch_id=branch_id,
-    ).scalar()
+    )
 
     new_paragraph = await generate_text_content(
         story_id, branch_id, story_content, language, sentiment, is_final_branch
@@ -405,30 +410,30 @@ async def generate_branch_content(
 async def generate_text_content(
     story_id, branch_id, story_content, language, sentiment, is_final_branch
 ):
-    logging.info(
+    app.logger.info(
         f"Generating text content for branch: story_id={story_id}, branch_id={branch_id}, sentiment={sentiment}"
     )
     if is_final_branch:
         prompt = get_final_prompt(story_content, language, sentiment)
-        logging.debug(
+        app.logger.debug(
             f"Final prompt generated: story_id={story_id}, branch_id={branch_id}"
         )
     else:
         prompt = get_continue_prompt(story_content, language, sentiment)
-        logging.debug(
+        app.logger.debug(
             f"Continue prompt generated: story_id={story_id}, branch_id={branch_id}"
         )
     llm_start = time()
     new_paragraph = await openai_prompt(prompt)
     llm_duration = time() - llm_start
-    logging.info(
+    app.logger.info(
         f"Paragraph generated: story_id={story_id}, branch_id={branch_id}, duration={llm_duration:.2f}s"
     )
 
-    logging.debug(
+    app.logger.debug(
         f"Updating branch status to 'text-only': story_id={story_id}, branch_id={branch_id}"
     )
-    run_query(
+    await query(
         """
         UPDATE branches SET
             status = 'text-only',
@@ -443,10 +448,10 @@ async def generate_text_content(
 
 
 async def generate_audio_content(story_id, branch_id, language, new_paragraph):
-    logging.debug(
+    app.logger.debug(
         f"Updating branch status to 'generating-audio': story_id={story_id}, branch_id={branch_id}"
     )
-    run_query(
+    await query(
         """
         UPDATE branches SET
             status = 'generating-audio'
@@ -459,14 +464,14 @@ async def generate_audio_content(story_id, branch_id, language, new_paragraph):
     tts_start = time()
     await text_to_audio(language, new_paragraph, audio_url)
     tts_duration = time() - tts_start
-    logging.info(
+    app.logger.info(
         f"Audio generated: story_id={story_id}, branch_id={branch_id}, duration={tts_duration:.2f}s"
     )
 
-    logging.debug(
+    app.logger.debug(
         f"Updating branch status to 'done': story_id={story_id}, branch_id={branch_id}"
     )
-    run_query(
+    await query(
         """
         UPDATE branches SET
             status = 'done', 

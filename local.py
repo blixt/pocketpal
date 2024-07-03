@@ -1,8 +1,14 @@
-from app import app
 from dotenv import load_dotenv
-import os
+from quart import logging
+
+logging.create_logger
 
 load_dotenv(override=True)
+
+
+from app import app
+import os
+
 
 if __name__ == "__main__":
     import sys

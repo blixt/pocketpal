@@ -8,5 +8,6 @@
     "editor.codeActionsOnSave": {
         "source.organizeImports": "always"
     },
-    "Prettier-SQL.SQLFlavourOverride": "postgresql"
+    "Prettier-SQL.SQLFlavourOverride": "postgresql",
+    "python.analysis.typeCheckingMode": "basic"
 }

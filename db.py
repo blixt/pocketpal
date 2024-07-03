@@ -1,44 +1,53 @@
 import os
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from sqlalchemy.sql import text
-from sqlalchemy.orm import Session as SQLAlchemySession
-from google.cloud.sql.connector import Connector
-
+from google.cloud.sql.connector import create_async_connector
 
 # Database configuration
-# See Notion for environment variables
 DB_PASS = os.environ.get("DB_PASS")
 DB_USER = os.environ.get("DB_USER")
 DB_NAME = os.environ.get("DB_NAME")
 INSTANCE_CONNECTION_NAME = os.environ.get("INSTANCE_CONNECTION_NAME")
 
-# Connection pooling setup
-connector = Connector()
+connector = None
 
 
-def getconn():
-    conn = connector.connect(
-        INSTANCE_CONNECTION_NAME, "pg8000", user=DB_USER, password=DB_PASS, db=DB_NAME
+async def getconn():
+    global connector
+    if connector is None:
+        connector = await create_async_connector()
+    return await connector.connect_async(
+        INSTANCE_CONNECTION_NAME, "asyncpg", user=DB_USER, password=DB_PASS, db=DB_NAME
     )
-    return conn
 
 
-engine = create_engine(
-    "postgresql+pg8000://",
-    creator=getconn,
+# Create async engine and session factory
+engine = create_async_engine(
+    "postgresql+asyncpg://",
+    async_creator=getconn,
 )
 
-Session = sessionmaker(bind=engine)
+AsyncSessionFactory = async_sessionmaker(
+    bind=engine, class_=AsyncSession, expire_on_commit=False
+)
 
 
-def run_query_with_session(session: SQLAlchemySession, query: str, **kwargs):
-    result = session.execute(text(query), kwargs)
-    return result
+# Query execution functions
+async def query_with_session(session: AsyncSession, sql: str, **kwargs):
+    return await session.execute(text(sql), kwargs)
 
 
-def run_query(query: str, **kwargs):
-    with Session() as session:
-        result = run_query_with_session(session, query, **kwargs)
-        session.commit()
-        return result
+async def query(sql: str, **kwargs):
+    async with AsyncSessionFactory() as session:
+        async with session.begin():
+            return await query_with_session(session, sql, **kwargs)
+
+
+async def query_one(sql: str, **kwargs):
+    result = await query(sql, **kwargs)
+    return result.fetchone()
+
+
+async def query_scalar(sql: str, **kwargs):
+    result = await query(sql, **kwargs)
+    return result.scalar()

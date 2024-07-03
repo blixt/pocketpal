@@ -1,5 +1,6 @@
 # Python image to use.
-FROM python:3.8-slim
+FROM python:3.12-slim
+
 ENV PYTHONUNBUFFERED True
 
 # Set the working directory to /app
@@ -16,8 +17,7 @@ RUN pip install -r requirements.txt
 COPY . /app
 
 # Run app.py when the container launches
-# ENTRYPOINT ["python", "-u", "local.py", "8080"]
-ENTRYPOINT ["flask", "run", "--host=0.0.0.0", "--port=8080"]
+ENTRYPOINT ["python", "-m", "quart", "run", "--host=0.0.0.0", "--port=8080"]
 
 # CMD exec gunicorn --bind :$PORT --workers 4 --threads 1 --timeout 0 app:app
 # CMD exec gunicorn app:app
