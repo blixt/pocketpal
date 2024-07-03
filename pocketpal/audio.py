@@ -1,11 +1,12 @@
 import os
-from datetime import datetime, timedelta
 from typing import Dict, Tuple
+from urllib.parse import quote
 
 import aiohttp
 from elevenlabs import VoiceSettings
 from elevenlabs.client import AsyncElevenLabs
-from google.cloud import storage
+from google.auth import default
+from google.auth.transport.requests import Request
 
 ELEVENLABS_API_KEY = os.getenv("ELEVENLABS_API_KEY")
 BUCKET_NAME = "pocketpal-bucket"
@@ -23,20 +24,17 @@ VOICES: Dict[str, Tuple[str, str]] = {
 
 def get_full_url(destination_blob_name: str) -> str:
     """Returns the full URL for a given blob name in the bucket."""
-    return f"https://storage.googleapis.com/{BUCKET_NAME}/{destination_blob_name}"
+    return f"https://storage.googleapis.com/{BUCKET_NAME}/{quote(destination_blob_name, safe='')}"
 
 
 async def text_to_audio(language: str, text: str, destination_blob_name: str):
-    """Convert text to audio"""
-
+    """Convert text to audio and upload to Google Cloud Storage"""
     if language not in VOICES:
         raise ValueError(f"Language {language} not supported")
 
     voice_id, model_id = VOICES[language]
 
-    client = AsyncElevenLabs(
-        api_key=ELEVENLABS_API_KEY,
-    )
+    client = AsyncElevenLabs(api_key=ELEVENLABS_API_KEY)
 
     response = client.text_to_speech.convert(
         voice_id=voice_id,
@@ -52,27 +50,23 @@ async def text_to_audio(language: str, text: str, destination_blob_name: str):
         ),
     )
 
-    # Save in storage
-    client = storage.Client(project="pocketpal-427909")
-    bucket = client.bucket(BUCKET_NAME)
-    blob = bucket.blob(destination_blob_name)
+    credentials, _ = default()
+    credentials.refresh(Request())
 
-    # Generate a signed URL for uploading
-    expiration_time = datetime.utcnow() + timedelta(minutes=10)
-    signed_url = blob.generate_signed_url(
-        expiration=expiration_time,
-        method="PUT",
-        content_type="audio/mpeg",
-    )
-
-    # TODO: It would be nice if we could multicast this to anyone that wants to listen to the audio before it's complete.
-    headers = {"Content-Type": "audio/mpeg"}
     async with aiohttp.ClientSession() as session:
-        async with session.put(signed_url, data=response, headers=headers) as resp:
-            if resp.status != 200:
-                print(f"Error: {await resp.text()}")
+        safe_destination_blob_name = quote(destination_blob_name, safe="")
+        url = f"https://storage.googleapis.com/upload/storage/v1/b/{BUCKET_NAME}/o?uploadType=media&name={safe_destination_blob_name}"
+
+        headers = {
+            "Authorization": f"Bearer {credentials.token}",
+            "Content-Type": "audio/mpeg",
+        }
+
+        async with session.post(url, headers=headers, data=response) as upload_response:
+            if upload_response.status != 200:
+                error_text = await upload_response.text()
                 raise Exception(
-                    f"Failed to upload file to {destination_blob_name} in bucket {BUCKET_NAME}. Status code: {resp.status}"
+                    f"Failed to upload file to {destination_blob_name} in bucket {BUCKET_NAME}. Status code: {upload_response.status}. Error: {error_text}"
                 )
 
     print(f"File uploaded to {destination_blob_name} in bucket {BUCKET_NAME}.")
