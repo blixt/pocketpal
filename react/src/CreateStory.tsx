@@ -1,5 +1,5 @@
 import { Box, Button, Card, Heading, TextArea } from "@radix-ui/themes"
-import { useState } from "react"
+import { useState, type KeyboardEvent } from "react"
 
 interface CreateStoryProps {
     onCreateStory: (prompt: string) => void
@@ -7,13 +7,22 @@ interface CreateStoryProps {
 
 export default function CreateStory({ onCreateStory }: CreateStoryProps) {
     const [prompt, setPrompt] = useState("")
+    const [isCreatingStory, setIsCreatingStory] = useState(false)
 
     const handlePromptChange = (event: React.ChangeEvent<HTMLTextAreaElement>) => {
         setPrompt(event.target.value)
     }
 
     const handleStartStory = () => {
+        if (isCreatingStory) return
+        setIsCreatingStory(true)
         onCreateStory(prompt)
+    }
+
+    const handleKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
+        if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
+            handleStartStory()
+        }
     }
 
     return (
@@ -26,9 +35,13 @@ export default function CreateStory({ onCreateStory }: CreateStoryProps) {
                     placeholder="Enter the seed of your story here..."
                     value={prompt}
                     onChange={handlePromptChange}
+                    onKeyDown={handleKeyDown}
                     mb="4"
+                    disabled={isCreatingStory}
                 />
-                <Button onClick={handleStartStory}>Start this journey</Button>
+                <Button onClick={handleStartStory} disabled={isCreatingStory}>
+                    Start this journey
+                </Button>
             </Card>
         </Box>
     )
