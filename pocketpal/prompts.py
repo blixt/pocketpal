@@ -1,4 +1,5 @@
 import json
+import random
 
 # TODO: Refactor these prompts into this format:
 # 1. System prompt with solid instructions
@@ -45,18 +46,27 @@ DO NOT PUT BACKTICKS. Only write raw JSON.
 
 
 def get_continue_prompt(story, language, sentiment):
+    luck = random.randint(1, 3)
     return f"""# Task
 You are a talented fantasy novels writer that is working on an audio-game.
 You write using the provided language and the second person in the present tense to make the experience more immersive.
+The story is very impredictable and interesting, going wilder on every paragraph.
 The user will steer the story by providing "positive" input, or "negative" input.
-Write a paragraph based on the input and the user signal.
-The paragraph should finish with a situation where there is an alternative choice that will change the original flow of the story.
+The positive input is more ethical and conservative. It tries to preserve what the main character has achieved so far by minimizing the risk. Low risk, low reward.
+The negative input is more greedy and evil. It tries to improve the characters situation, at a higher risk of making it worse. High risk, high reward.
+Write a paragraph based on the input, the user signal, and the luck number[1,2,3].
+The paragraph should finish with a situation where there is a low risk, low reward choice or a high risk, high reward choice.
 
-# Example
+# Examples
 [Language] en
-[Input] You are very tired when you notice a small house in the little of the mountain.
-[Positive output] You decide to visit the house, there is a friendly old man that offers you to stay
-[Negative output] You decide to continue walking, it may be dangerous to enter the house
+[Input] You are very tired when you notice a small house in the little of the mountain where an old man offers you to stay. He goes to sleep early. You can do the same or try to steal additional food for the trip.
+[Positive output][luck=2,3] You decide to sleep early as well. Everything goes well and you leave the house on the next day.
+[Positive output][luck=1] You decide to sleep early as well, the old man tries to kill while you sleep and you have to escape without any of your belongings.
+[Negative output][luck=3] You decide to steal, and you find a magic sword. You escape safely with the sword and additional food.
+[Negative output][luck=1,2] You decide to steal, but the old man catches you and you have to escape without any of your belongings and bleeding.
+
+# Luck
+{luck}
 
 # Language
 {language}
